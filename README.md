@@ -1,0 +1,189 @@
+# E-Ticaret Satıcı Yönetim Paneli
+
+Bu proje, e-ticaret satıcılarının ürün, sipariş ve kargo bilgilerini **Excel dosyaları** üzerinden yönetebilecekleri bir dashboard uygulamasıdır.
+
+## 🚀 Özellikler
+
+### Backend (ASP.NET Core Web API)
+- ✅ Firebase Firestore veritabanı entegrasyonu
+- ✅ Excel ile toplu ürün içe/dışa aktarma
+- ✅ Excel ile kargo takip bilgisi içe/dışa aktarma
+- ✅ Ürün yönetimi (CRUD)
+- ✅ Sipariş yönetimi
+- ✅ Kargo takip sistemi
+- ✅ RESTful API
+- ✅ Swagger/OpenAPI dokümantasyonu
+
+### Excel Özellikleri
+- 📊 Excel şablon indirme
+- 📤 Excel dosyasından toplu veri yükleme
+- 📥 Veritabanındaki verileri Excel'e aktarma
+- ✏️ Excel üzerinden ürün fiyatı, stok, kargo bilgisi güncelleme
+
+## 📋 Gereksinimler
+
+- .NET 9.0 SDK
+- Firebase hesabı ve Firestore veritabanı
+- Node.js (Frontend için)
+
+## 🔧 Kurulum
+
+### 1. Firebase Yapılandırması
+
+1. [Firebase Console](https://console.firebase.google.com/) üzerinden bir proje oluşturun
+2. Firestore Database'i etkinleştirin
+3. Proje ayarları > Servis Hesapları > Yeni özel anahtar oluştur
+4. İndirilen JSON dosyasını `EcommerceAPI` klasörüne `firebase-credentials.json` adıyla kaydedin
+
+### 2. Backend Kurulumu
+
+```bash
+cd EcommerceAPI
+
+# appsettings.json dosyasını düzenleyin
+# Firebase ProjectId'nizi girin
+
+# Projeyi çalıştırın
+dotnet run
+```
+
+API şu adreste çalışacaktır: `https://localhost:5001` veya `http://localhost:5000`
+
+Swagger UI: `https://localhost:5001/swagger`
+
+## 📚 API Endpoints
+
+### Ürünler (Products)
+
+```
+GET    /api/products              - Tüm ürünleri listele
+GET    /api/products?sellerId=X   - Satıcıya göre ürünleri listele
+GET    /api/products/{id}         - Tek ürün getir
+POST   /api/products              - Yeni ürün ekle
+PUT    /api/products/{id}         - Ürün güncelle
+DELETE /api/products/{id}         - Ürün sil
+
+# Excel İşlemleri
+GET    /api/products/template            - Excel şablonu indir
+GET    /api/products/export              - Ürünleri Excel'e aktar
+POST   /api/products/import?sellerId=X   - Excel'den ürün yükle
+```
+
+### Siparişler (Orders)
+
+```
+GET    /api/orders                - Tüm siparişleri listele
+GET    /api/orders?sellerId=X     - Satıcıya göre siparişleri listele
+GET    /api/orders/{id}           - Tek sipariş getir
+POST   /api/orders                - Yeni sipariş oluştur
+PUT    /api/orders/{id}           - Sipariş güncelle
+PUT    /api/orders/{id}/status    - Sipariş durumu güncelle
+```
+
+### Kargo Takibi (Shipping)
+
+```
+GET    /api/shipping                     - Tüm kargo kayıtlarını listele
+GET    /api/shipping/{id}                - Kargo kaydı getir
+GET    /api/shipping/tracking/{number}   - Takip numarasıyla sorgula
+GET    /api/shipping/order/{orderId}     - Sipariş için kargo bilgisi
+POST   /api/shipping                     - Yeni kargo kaydı ekle
+PUT    /api/shipping/{id}                - Kargo kaydı güncelle
+POST   /api/shipping/{id}/events         - Kargo durumu ekle
+
+# Excel İşlemleri
+GET    /api/shipping/template     - Excel şablonu indir
+GET    /api/shipping/export       - Kargo bilgilerini Excel'e aktar
+POST   /api/shipping/import       - Excel'den kargo bilgisi yükle
+```
+
+## 📊 Excel Kullanımı
+
+### Ürün Excel Formatı
+
+| Ürün Adı * | Açıklama | Fiyat * | Stok * | Kategori * | SKU * | Resim URL | Aktif |
+|-----------|----------|---------|--------|-----------|-------|-----------|-------|
+| Örnek Ürün | Açıklama | 99.99 | 100 | Elektronik | SKU-123 | url | true |
+
+### Kargo Takip Excel Formatı
+
+| Sipariş ID * | Takip Numarası * | Kargo Firması * | Durum | Mevcut Konum |
+|-------------|-----------------|----------------|-------|--------------|
+| ORD-12345 | TK123456789 | Aras Kargo | Shipped | İstanbul |
+
+### Excel İşlemleri Nasıl Yapılır?
+
+1. **Şablon İndirme**: API'den ilgili `/template` endpoint'ini çağırın
+2. **Veri Girişi**: İndirilen Excel dosyasını doldurun
+3. **Yükleme**: Doldurduğunuz dosyayı `/import` endpoint'ine POST edin
+4. **Dışa Aktarma**: `/export` endpoint'inden mevcut verileri indirin
+
+## 🛠️ Teknolojiler
+
+### Backend
+- ASP.NET Core 9.0
+- Firebase Admin SDK
+- EPPlus (Excel işlemleri)
+- Swagger/OpenAPI
+
+### Veritabanı
+- Firebase Firestore (NoSQL)
+
+## 📝 Veri Modelleri
+
+### Product (Ürün)
+- Name, Description, Price, Stock
+- Category, SKU, ImageUrl
+- SellerId, IsActive
+- CreatedAt, UpdatedAt
+
+### Order (Sipariş)
+- OrderNumber, SellerId, CustomerId
+- Items (List<OrderItem>)
+- TotalAmount, Status
+- ShippingAddress, TrackingNumber
+- OrderDate, ShippedDate, DeliveredDate
+
+### Shipping (Kargo)
+- OrderId, TrackingNumber, Carrier
+- Status, CurrentLocation
+- Events (List<ShippingEvent>)
+- EstimatedDeliveryDate, ActualDeliveryDate
+
+## 🔐 Güvenlik Notları
+
+- Firebase credentials dosyasını `.gitignore`'a ekleyin
+- Üretim ortamında çevre değişkenleri kullanın
+- API için authentication ekleyin (JWT, OAuth vb.)
+
+## 📱 Frontend Geliştirme
+
+Frontend için React, Vue veya Angular kullanabilirsiniz. Örnek özellikleri:
+
+- Excel dosyası yükleme arayüzü
+- Ürün listesi ve düzenleme formu
+- Sipariş yönetimi
+- Kargo takip ekranı
+- Dashboard/istatistikler
+
+## 🤝 Katkıda Bulunma
+
+1. Fork yapın
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Commit yapın (`git commit -m 'Add amazing feature'`)
+4. Push yapın (`git push origin feature/amazing-feature`)
+5. Pull Request açın
+
+## 📄 Lisans
+
+Bu proje eğitim amaçlıdır. EPPlus kütüphanesi NonCommercial lisansı ile kullanılmaktadır.
+
+## 💡 Sonraki Adımlar
+
+- [ ] Frontend uygulaması (React/Vue/Angular)
+- [ ] Kullanıcı authentication (Firebase Auth)
+- [ ] Satıcı paneli görselleri
+- [ ] Raporlama ve istatistikler
+- [ ] Email bildirimleri
+- [ ] Toplu ürün güncelleme
+- [ ] Gelişmiş filtreleme ve arama

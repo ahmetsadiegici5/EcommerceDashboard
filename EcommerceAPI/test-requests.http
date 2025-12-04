@@ -1,0 +1,105 @@
+### API Test İstekleri
+### VS Code REST Client eklentisi ile kullanabilirsiniz
+
+@baseUrl = http://localhost:5039
+
+### 1. İlk Ürünü Ekle
+POST {{baseUrl}}/api/products
+Content-Type: application/json
+
+{
+  "name": "Laptop",
+  "description": "Gaming Laptop - 16GB RAM, RTX 3060",
+  "price": 25000,
+  "stock": 10,
+  "category": "Elektronik",
+  "sku": "LPT-001",
+  "imageUrl": "https://example.com/laptop.jpg",
+  "sellerId": "seller123",
+  "isActive": true
+}
+
+###
+
+### 2. İkinci Ürünü Ekle
+POST {{baseUrl}}/api/products
+Content-Type: application/json
+
+{
+  "name": "Klavye",
+  "description": "Mekanik RGB Klavye",
+  "price": 1500,
+  "stock": 50,
+  "category": "Bilgisayar Aksesuarları",
+  "sku": "KLV-001",
+  "imageUrl": "https://example.com/keyboard.jpg",
+  "sellerId": "seller123",
+  "isActive": true
+}
+
+###
+
+### 3. Tüm Ürünleri Listele
+GET {{baseUrl}}/api/products
+
+###
+
+### 4. Satıcıya Göre Ürünleri Listele
+GET {{baseUrl}}/api/products?sellerId=seller123
+
+###
+
+### 5. Excel Şablonu İndir
+GET {{baseUrl}}/api/products/template
+
+###
+
+### 6. Ürünleri Excel'e Aktar
+GET {{baseUrl}}/api/products/export?sellerId=seller123
+
+###
+
+### 7. Sipariş Ekle
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "sellerId": "seller123",
+  "customerId": "customer001",
+  "customerName": "Ahmet Yılmaz",
+  "customerEmail": "ahmet@example.com",
+  "customerPhone": "05551234567",
+  "items": [
+    {
+      "productId": "prod123",
+      "productName": "Laptop",
+      "quantity": 1,
+      "unitPrice": 25000,
+      "totalPrice": 25000
+    }
+  ],
+  "totalAmount": 25000,
+  "status": "Pending",
+  "shippingAddress": "İstanbul, Türkiye"
+}
+
+###
+
+### 8. Kargo Takip Ekle
+POST {{baseUrl}}/api/shipping
+Content-Type: application/json
+
+{
+  "orderId": "order123",
+  "trackingNumber": "TK123456789",
+  "carrier": "Aras Kargo",
+  "status": "Shipped",
+  "currentLocation": "İstanbul"
+}
+
+###
+
+### 9. Kargo Şablonu İndir
+GET {{baseUrl}}/api/shipping/template
+
+###
