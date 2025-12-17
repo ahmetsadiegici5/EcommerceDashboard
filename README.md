@@ -48,9 +48,9 @@ cd EcommerceAPI
 dotnet run
 ```
 
-API şu adreste çalışacaktır: `https://localhost:5001` veya `http://localhost:5000`
+API şu adreste çalışacaktır: `http://localhost:5039`
 
-Swagger UI: `https://localhost:5001/swagger`
+Swagger UI: `http://localhost:5039/swagger`
 
 ## 📚 API Endpoints
 
@@ -129,9 +129,19 @@ POST   /api/shipping/import       - Excel'den kargo bilgisi yükle
 
 ### Backend
 - ASP.NET Core 9.0
-- Firebase Admin SDK
-- EPPlus (Excel işlemleri)
-- Swagger/OpenAPI
+- Firebase Admin SDK v3.4
+- Google Cloud Firestore v3.11
+- EPPlus v7.4 (Excel işlemleri)
+- FluentValidation (Doğrulama)
+- Swagger/OpenAPI (Swashbuckle)
+- JWT Bearer Authentication
+
+### Frontend
+- React 19 + TypeScript
+- Vite 7
+- Material UI (MUI) v7
+- Firebase Client SDK v12
+- Axios, React Router, Recharts
 
 ### Veritabanı
 - Firebase Firestore (NoSQL)
@@ -171,15 +181,37 @@ POST   /api/shipping/import       - Excel'den kargo bilgisi yükle
 - Üretim ortamında çevre değişkenleri kullanın
 - Tüm kimlik doğrulama tarayıcıya görünmeyen HttpOnly cookie üzerinden yürütülür; `localStorage`'da token tutulmaz
 
-## 📱 Frontend Geliştirme
+## 📱 Frontend (seller-dashboard)
 
-Frontend için React, Vue veya Angular kullanabilirsiniz. Örnek özellikleri:
+Bu projede **React 19 + TypeScript + Vite** ile geliştirilmiş bir satıcı paneli bulunmaktadır.
 
-- Excel dosyası yükleme arayüzü
-- Ürün listesi ve düzenleme formu
-- Sipariş yönetimi
-- Kargo takip ekranı
-- Dashboard/istatistikler
+### Frontend Kurulumu
+
+```bash
+cd seller-dashboard
+npm install
+npm run dev
+```
+
+Frontend şu adreste çalışacaktır: `http://localhost:5173`
+
+### Kullanılan Teknolojiler
+- React 19 + TypeScript
+- Vite (Build tool)
+- Material UI (MUI) v7
+- React Router v7
+- Axios (HTTP client)
+- Firebase Auth (Client SDK)
+- Recharts (Grafikler)
+- XLSX (Excel işlemleri)
+
+### Mevcut Sayfalar
+- 🏠 Dashboard (Ana sayfa/istatistikler)
+- 📦 Ürünler (Ürün listesi ve yönetimi)
+- 🛒 Siparişler (Sipariş yönetimi)
+- 🚚 Kargo (Kargo takip ekranı)
+- 📊 Excel (Excel import/export işlemleri)
+- 🔐 Giriş (Login sayfası)
 
 ## 🤝 Katkıda Bulunma
 
@@ -195,10 +227,11 @@ Bu proje eğitim amaçlıdır. EPPlus kütüphanesi NonCommercial lisansı ile k
 
 ## 💡 Sonraki Adımlar
 
-- [ ] Frontend uygulaması (React/Vue/Angular)
-- [ ] Kullanıcı authentication (Firebase Auth)
-- [ ] Satıcı paneli görselleri
-- [ ] Raporlama ve istatistikler
+- [x] Frontend uygulaması (React + TypeScript + Vite)
+- [x] Kullanıcı authentication (Firebase Auth)
+- [x] Satıcı paneli görselleri (Material UI)
+- [x] Raporlama ve istatistikler (Dashboard sayfası)
 - [ ] Email bildirimleri
 - [ ] Toplu ürün güncelleme
 - [ ] Gelişmiş filtreleme ve arama
+- [ ] Birim testleri (Unit tests)

@@ -119,7 +119,7 @@ export default function Layout({ children }: LayoutProps) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            E-Ticaret Satıcı Dashboard
+            Dashboard
           </Typography>
           
           {/* User Menu */}

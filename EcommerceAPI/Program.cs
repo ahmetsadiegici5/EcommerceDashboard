@@ -65,7 +65,7 @@ if (app.Environment.IsDevelopment())
 // CORS'u kullan
 app.UseCors("FrontendPolicy");
 
-// Custom Firebase Auth Middleware
+// Custom Firebase Auth Middleware (Geçici olarak devre dışı bırakıldı)
 app.UseMiddleware<EcommerceAPI.Middleware.FirebaseAuthMiddleware>();
 
 app.UseAuthorization();

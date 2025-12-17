@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, TextField, Button, Typography, Container, Alert, Tabs, Tab, Paper } from '@mui/material';
+import { Box, TextField, Button, Typography, Container, Alert, Paper } from '@mui/material';
 import { Lock } from '@mui/icons-material';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { api } from '../services/apiConfig';
 import { useToast } from '../contexts/ToastContext';
@@ -12,7 +12,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [tabValue, setTabValue] = useState(0);
+    // const [tabValue, setTabValue] = useState(0);
     const navigate = useNavigate();
     const { showToast } = useToast();
 
@@ -25,38 +25,30 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const token = await userCredential.user.getIdToken();
             await api.post('/Auth/session', { idToken: token });
-            
             showToast('Giriş başarılı', 'success');
             navigate('/');
         } catch (err: any) {
             console.error('Login error:', err);
-            setError(err.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
-            showToast('Giriş başarısız', 'error');
+            let message = 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                message = 'Bu e-posta ile kayıtlı bir kullanıcı bulunamadı veya şifre yanlış.';
+            } else if (err.code === 'auth/wrong-password') {
+                message = 'Şifre yanlış. Lütfen tekrar deneyin.';
+            } else if (err.code === 'auth/invalid-email') {
+                message = 'Geçersiz e-posta adresi.';
+            } else if (err.code === 'auth/too-many-requests') {
+                message = 'Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.';
+            } else if (err.message) {
+                message = err.message;
+            }
+            setError(message);
+            showToast(message, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
 
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const token = await userCredential.user.getIdToken();
-            await api.post('/Auth/session', { idToken: token });
-            
-            showToast('Kayıt başarılı', 'success');
-            navigate('/');
-        } catch (err: any) {
-            console.error('Register error:', err);
-            setError(err.message || 'Kayıt başarısız. Lütfen bilgilerinizi kontrol edin.');
-            showToast('Kayıt başarısız', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <Box 
@@ -82,13 +74,10 @@ export default function LoginPage() {
                             <Lock sx={{ fontSize: 32 }} />
                         </Box>
                         <Typography component="h1" variant="h5" gutterBottom fontWeight="bold">
-                            Satıcı Paneli
+                            Dashboard
                         </Typography>
 
-                        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{ mb: 3, width: '100%' }}>
-                            <Tab label="Giriş Yap" sx={{ flex: 1 }} />
-                            <Tab label="Kayıt Ol" sx={{ flex: 1 }} />
-                        </Tabs>
+
 
                         {error && (
                             <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
@@ -96,7 +85,7 @@ export default function LoginPage() {
                             </Alert>
                         )}
 
-                        <Box component="form" onSubmit={tabValue === 0 ? handleLogin : handleRegister} sx={{ width: '100%' }}>
+                        <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
                             <TextField
                                 margin="normal"
                                 required
@@ -130,7 +119,7 @@ export default function LoginPage() {
                                 sx={{ mt: 3, mb: 2 }}
                                 disabled={loading}
                             >
-                                {loading ? 'İşlem yapılıyor...' : tabValue === 0 ? 'Giriş Yap' : 'Kayıt Ol'}
+                                {loading ? 'İşlem yapılıyor...' : 'Giriş Yap'}
                             </Button>
                         </Box>
                     </Box>
