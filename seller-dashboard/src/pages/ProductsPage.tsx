@@ -11,10 +11,15 @@ import {
   FormControlLabel,
   Switch,
   Chip,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Search as SearchIcon } from '@mui/icons-material';
 import { productService } from '../services/api';
 import type { Product } from '../types';
 import { useToast } from '../contexts/ToastContext';
@@ -26,6 +31,11 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [lowStockFilter, setLowStockFilter] = useState<number | ''>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
   const createEmptyForm = (): ProductFormData => ({
     name: '',
     description: '',
@@ -44,10 +54,15 @@ export default function ProductsPage() {
     loadProducts();
   }, []);
 
-  const loadProducts = async (manual = false) => {
+  const loadProducts = async (manual = false, page = 1) => {
     try {
       setLoading(true);
-      const data = await productService.getAll();
+      const data = await productService.search(
+        searchTerm,
+        lowStockFilter !== '' ? lowStockFilter : undefined,
+        page,
+        pageSize
+      );
       setProducts(data);
       if (manual) showToast('Ürünler güncellendi', 'success');
     } catch (error) {
@@ -159,6 +174,16 @@ export default function ProductsPage() {
     },
   ];
 
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleLowStockChange = (e: any) => {
+    setLowStockFilter(e.target.value);
+    setCurrentPage(1);
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -167,7 +192,7 @@ export default function ProductsPage() {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={() => loadProducts(true)}
+            onClick={() => loadProducts(true, currentPage)}
             disabled={loading}
             sx={{ mr: 2 }}
           >
@@ -183,12 +208,49 @@ export default function ProductsPage() {
         </Box>
       </Box>
 
+      {/* Arama ve Filtreleme */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <TextField
+          placeholder="Ürün adı, kategori, SKU ara..."
+          variant="outlined"
+          size="small"
+          value={searchTerm}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ flex: '1 1 300px', minWidth: 200 }}
+        />
+        <FormControl sx={{ flex: '1 1 200px', minWidth: 150 }}>
+          <InputLabel>Stok Durumu</InputLabel>
+          <Select
+            value={lowStockFilter}
+            onChange={handleLowStockChange}
+            label="Stok Durumu"
+          >
+            <MenuItem value="">Tümü</MenuItem>
+            <MenuItem value={5}>Çok Düşük (≤5)</MenuItem>
+            <MenuItem value={10}>Düşük (≤10)</MenuItem>
+            <MenuItem value={20}>Uyarı (≤20)</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       <DataGrid
         rows={products}
         columns={columns}
         loading={loading}
         autoHeight
         pageSizeOptions={[10, 25, 50]}
+        onPaginationModelChange={(model) => {
+          setCurrentPage(model.page + 1);
+          setPageSize(model.pageSize);
+          loadProducts(false, model.page + 1);
+        }}
         initialState={{
           pagination: { paginationModel: { pageSize: 10 } },
         }}

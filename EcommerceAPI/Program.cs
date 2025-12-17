@@ -55,6 +55,9 @@ var app = builder.Build();
 // Global Exception Middleware
 app.UseMiddleware<EcommerceAPI.Middleware.ExceptionMiddleware>();
 
+// Rate Limiting Middleware
+app.UseMiddleware<EcommerceAPI.Middleware.RateLimitingMiddleware>();
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
@@ -65,8 +68,11 @@ if (app.Environment.IsDevelopment())
 // CORS'u kullan
 app.UseCors("FrontendPolicy");
 
-// Custom Firebase Auth Middleware (Geçici olarak devre dışı bırakıldı)
+// Custom Firebase Auth Middleware
 app.UseMiddleware<EcommerceAPI.Middleware.FirebaseAuthMiddleware>();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 app.UseAuthorization();
 app.MapControllers();

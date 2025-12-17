@@ -101,6 +101,31 @@ namespace EcommerceAPI.Services
             return paged.Select(MapToDto).ToList();
         }
 
+        public async Task<List<ProductDto>> SearchProductsAsync(string sellerId, string searchTerm, int? minStock = null, int pageNumber = 1, int pageSize = 10)
+        {
+            var products = await GetProductsForSellerInternalAsync(sellerId);
+
+            // Arama yap (ad, kategori, SKU'da)
+            var filtered = products.Where(p =>
+                p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                p.Category.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                p.SKU.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+
+            // Stok filtresi (düşük stok uyarısı)
+            if (minStock.HasValue)
+            {
+                filtered = filtered.Where(p => p.Stock <= minStock.Value).ToList();
+            }
+
+            // Sıralama ve Pagination
+            var ordered = filtered.OrderByDescending(p => p.CreatedAt);
+            var paged = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+            return paged.Select(MapToDto).ToList();
+        }
+
         private async Task<List<Product>> GetProductsForSellerInternalAsync(string sellerId)
         {
             if (string.IsNullOrWhiteSpace(sellerId))

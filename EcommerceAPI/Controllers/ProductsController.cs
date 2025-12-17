@@ -44,6 +44,18 @@ namespace EcommerceAPI.Controllers
             return Ok(products);
         }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<List<ProductDto>>> Search(
+            [FromQuery] string q = "", 
+            [FromQuery] int? lowStock = null,
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 10)
+        {
+            var sellerId = _currentUserService.GetUserIdOrThrow();
+            var products = await _productService.SearchProductsAsync(sellerId, q, lowStock, page, pageSize);
+            return Ok(products);
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<ProductDto>> GetById(string id)
         {

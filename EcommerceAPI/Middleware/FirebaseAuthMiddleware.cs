@@ -10,6 +10,16 @@ namespace EcommerceAPI.Middleware
         private readonly ILogger<FirebaseAuthMiddleware> _logger;
         private const string SessionCookieName = "authToken";
 
+        // Kimlik doğrulama gerektirmeyen endpoint'ler
+        private static readonly string[] PublicPaths = new[]
+        {
+            "/api/auth/register",
+            "/api/auth/session",
+            "/api/auth/verify-token",
+            "/swagger",
+            "/health"
+        };
+
         public FirebaseAuthMiddleware(RequestDelegate next, ILogger<FirebaseAuthMiddleware> logger)
         {
             _next = next;
@@ -18,6 +28,15 @@ namespace EcommerceAPI.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
+            var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+
+            // Public endpoint'lere erişime izin ver
+            if (IsPublicPath(path))
+            {
+                await _next(context);
+                return;
+            }
+
             string? token = null;
             string? authHeader = context.Request.Headers["Authorization"].ToString();
 
@@ -30,9 +49,11 @@ namespace EcommerceAPI.Middleware
                 token = cookieToken;
             }
 
+            // Token yoksa ve public path değilse 401 döndür
             if (string.IsNullOrEmpty(token))
             {
-                await _next(context);
+                context.Response.StatusCode = 401;
+                await context.Response.WriteAsJsonAsync(new { message = "Unauthorized", error = "Kimlik doğrulama gerekli." });
                 return;
             }
 
@@ -67,6 +88,18 @@ namespace EcommerceAPI.Middleware
             }
 
             await _next(context);
+        }
+
+        private static bool IsPublicPath(string path)
+        {
+            foreach (var publicPath in PublicPaths)
+            {
+                if (path.StartsWith(publicPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

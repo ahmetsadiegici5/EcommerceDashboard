@@ -1,3 +1,6 @@
+using FluentValidation;
+using Grpc.Core;
+
 namespace EcommerceAPI.Middleware
 {
     public class ExceptionMiddleware
@@ -19,7 +22,8 @@ namespace EcommerceAPI.Middleware
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception occurred.");
+                _logger.LogError(ex, "Unhandled exception occurred. Path={Path}, Method={Method}", 
+                    httpContext.Request.Path, httpContext.Request.Method);
                 await HandleExceptionAsync(httpContext, ex);
             }
         }
@@ -28,27 +32,64 @@ namespace EcommerceAPI.Middleware
         {
             context.Response.ContentType = "application/json";
             
-            var statusCode = exception switch
+            var (statusCode, message, errors) = exception switch
             {
-                KeyNotFoundException => StatusCodes.Status404NotFound,
-                ArgumentNullException => StatusCodes.Status400BadRequest,
-                ArgumentException => StatusCodes.Status400BadRequest,
-                InvalidOperationException => StatusCodes.Status400BadRequest,
-                UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
-                _ => StatusCodes.Status500InternalServerError
+                ValidationException validationEx => (
+                    StatusCodes.Status400BadRequest,
+                    "Doğrulama hatası.",
+                    validationEx.Errors.Select(e => e.ErrorMessage).ToList()
+                ),
+                KeyNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    exception.Message,
+                    (List<string>?)null
+                ),
+                ArgumentNullException => (
+                    StatusCodes.Status400BadRequest,
+                    exception.Message,
+                    (List<string>?)null
+                ),
+                ArgumentException => (
+                    StatusCodes.Status400BadRequest,
+                    exception.Message,
+                    (List<string>?)null
+                ),
+                InvalidOperationException => (
+                    StatusCodes.Status400BadRequest,
+                    exception.Message,
+                    (List<string>?)null
+                ),
+                UnauthorizedAccessException => (
+                    StatusCodes.Status401Unauthorized,
+                    exception.Message,
+                    (List<string>?)null
+                ),
+                RpcException rpcEx => (
+                    StatusCodes.Status503ServiceUnavailable,
+                    "Veritabanı servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+                    (List<string>?)null
+                ),
+                _ => (
+                    StatusCodes.Status500InternalServerError,
+                    "Beklenmeyen bir hata meydana geldi. Lütfen daha sonra tekrar deneyin.",
+                    (List<string>?)null
+                )
             };
 
             context.Response.StatusCode = statusCode;
 
-            var message = statusCode == StatusCodes.Status500InternalServerError
-                ? "Beklenmeyen bir hata meydana geldi. Lütfen daha sonra tekrar deneyin."
-                : exception.Message;
+            var response = new Dictionary<string, object>
+            {
+                { "statusCode", statusCode },
+                { "message", message }
+            };
 
-            return context.Response.WriteAsJsonAsync(new 
-            { 
-                StatusCode = statusCode,
-                Message = message 
-            });
+            if (errors != null && errors.Any())
+            {
+                response["errors"] = errors;
+            }
+
+            return context.Response.WriteAsJsonAsync(response);
         }
     }
 }

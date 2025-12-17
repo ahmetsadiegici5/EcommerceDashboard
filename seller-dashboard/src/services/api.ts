@@ -17,6 +17,13 @@ export const productService = {
     return response.data;
   },
 
+  search: async (q: string = '', lowStock?: number, page: number = 1, pageSize: number = 10): Promise<Product[]> => {
+    const response = await api.get('/Products/search', {
+      params: { q, lowStock, page, pageSize },
+    });
+    return response.data;
+  },
+
   create: async (product: ProductPayload): Promise<{ id: string }> => {
     const response = await api.post('/Products', product);
     return response.data;
