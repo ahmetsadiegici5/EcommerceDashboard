@@ -21,6 +21,9 @@ namespace EcommerceAPI.Models
         public string Status { get; set; } = "Preparing"; // Preparing, Shipped, InTransit, OutForDelivery, Delivered
 
         [FirestoreProperty]
+        public string SellerId { get; set; } = string.Empty;
+
+        [FirestoreProperty]
         public string? CurrentLocation { get; set; }
 
         [FirestoreProperty]

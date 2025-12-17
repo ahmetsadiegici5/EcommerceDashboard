@@ -1,6 +1,10 @@
+using System;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
-using EcommerceAPI.Models;
+using EcommerceAPI.Configuration;
+using EcommerceAPI.DTOs;
 using EcommerceAPI.Services;
+using Microsoft.Extensions.Options;
 
 namespace EcommerceAPI.Controllers
 {
@@ -8,219 +12,116 @@ namespace EcommerceAPI.Controllers
     [Route("api/[controller]")]
     public class ShippingController : ControllerBase
     {
-        private readonly FirestoreService _firestoreService;
-        private readonly ExcelService _excelService;
-        private readonly ILogger<ShippingController> _logger;
-        private const string COLLECTION_NAME = "shipping";
+        private readonly IShippingService _shippingService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly SellerSettings _sellerSettings;
 
         public ShippingController(
-            FirestoreService firestoreService,
-            ExcelService excelService,
-            ILogger<ShippingController> logger)
+            IShippingService shippingService,
+            ICurrentUserService currentUserService,
+            IOptions<SellerSettings> sellerOptions)
         {
-            _firestoreService = firestoreService;
-            _excelService = excelService;
-            _logger = logger;
+            _shippingService = shippingService;
+            _currentUserService = currentUserService;
+            _sellerSettings = sellerOptions.Value;
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Shipping>>> GetAll()
+        public async Task<ActionResult<List<ShippingDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            try
-            {
-                var shippingList = await _firestoreService.GetAllDocumentsAsync<Shipping>(COLLECTION_NAME);
-                return Ok(shippingList);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo bilgileri getirilirken hata oluştu");
-                return StatusCode(500, "Kargo bilgileri getirilirken bir hata oluştu");
-            }
+            var sellerId = _currentUserService.GetUserIdOrThrow();
+            var shippingList = await _shippingService.GetShippingForSellerAsync(sellerId, page, pageSize);
+            return Ok(shippingList);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Shipping>> GetById(string id)
+        public async Task<ActionResult<ShippingDto>> GetById(string id)
         {
-            try
-            {
-                var shipping = await _firestoreService.GetDocumentAsync<Shipping>(COLLECTION_NAME, id);
-                
-                if (shipping == null)
-                    return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
+            var shipping = await _shippingService.GetShippingByIdAsync(id);
+            
+            if (shipping == null)
+                return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
 
-                return Ok(shipping);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo bilgisi getirilirken hata oluştu");
-                return StatusCode(500, "Kargo bilgisi getirilirken bir hata oluştu");
-            }
+            if (!UserOwnsShipping(shipping))
+                return Forbid();
+
+            return Ok(shipping);
         }
 
         [HttpGet("tracking/{trackingNumber}")]
-        public async Task<ActionResult<Shipping>> GetByTrackingNumber(string trackingNumber)
+        public async Task<ActionResult<ShippingDto>> GetByTrackingNumber(string trackingNumber)
         {
-            try
-            {
-                var shippingList = await _firestoreService.QueryDocumentsAsync<Shipping>(
-                    COLLECTION_NAME, "TrackingNumber", trackingNumber);
-                
-                if (shippingList == null || !shippingList.Any())
-                    return NotFound($"Takip numarası: {trackingNumber} olan kargo bulunamadı");
+            var shipping = await _shippingService.GetShippingByTrackingNumberAsync(trackingNumber);
+            
+            if (shipping == null)
+                return NotFound($"Takip numarası: {trackingNumber} olan kargo bulunamadı");
 
-                return Ok(shippingList.First());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo takibi getirilirken hata oluştu");
-                return StatusCode(500, "Kargo takibi getirilirken bir hata oluştu");
-            }
+            if (!UserOwnsShipping(shipping))
+                return Forbid();
+
+            return Ok(shipping);
         }
 
         [HttpGet("order/{orderId}")]
-        public async Task<ActionResult<Shipping>> GetByOrderId(string orderId)
+        public async Task<ActionResult<ShippingDto>> GetByOrderId(string orderId)
         {
-            try
-            {
-                var shippingList = await _firestoreService.QueryDocumentsAsync<Shipping>(
-                    COLLECTION_NAME, "OrderId", orderId);
-                
-                if (shippingList == null || !shippingList.Any())
-                    return NotFound($"Sipariş ID: {orderId} için kargo kaydı bulunamadı");
+            var shipping = await _shippingService.GetShippingByOrderIdAsync(orderId);
+            
+            if (shipping == null)
+                return NotFound($"Sipariş ID: {orderId} için kargo kaydı bulunamadı");
 
-                return Ok(shippingList.First());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Sipariş kargo bilgisi getirilirken hata oluştu");
-                return StatusCode(500, "Sipariş kargo bilgisi getirilirken bir hata oluştu");
-            }
+            if (!UserOwnsShipping(shipping))
+                return Forbid();
+
+            return Ok(shipping);
         }
 
         [HttpPost]
-        public async Task<ActionResult<string>> Create([FromBody] Shipping shipping)
+        public async Task<ActionResult<ShippingDto>> Create([FromBody] CreateShippingDto shippingDto)
         {
-            try
-            {
-                shipping.CreatedAt = DateTime.UtcNow;
-                
-                var id = await _firestoreService.AddDocumentAsync(COLLECTION_NAME, shipping);
-                return CreatedAtAction(nameof(GetById), new { id }, new { id });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo kaydı eklenirken hata oluştu");
-                return StatusCode(500, "Kargo kaydı eklenirken bir hata oluştu");
-            }
+            shippingDto.SellerId = _currentUserService.GetUserIdOrThrow();
+
+            var createdShipping = await _shippingService.CreateShippingAsync(shippingDto);
+            return CreatedAtAction(nameof(GetById), new { id = createdShipping.Id }, createdShipping);
         }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult> Update(string id, [FromBody] Shipping shipping)
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult> UpdateStatus(string id, [FromBody] UpdateShippingStatusDto statusDto)
         {
-            try
-            {
-                var existing = await _firestoreService.GetDocumentAsync<Shipping>(COLLECTION_NAME, id);
-                if (existing == null)
-                    return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
+            var existing = await _shippingService.GetShippingByIdAsync(id);
+            if (existing == null)
+                return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
 
-                shipping.Id = id;
-                shipping.CreatedAt = existing.CreatedAt;
-                
-                await _firestoreService.UpdateDocumentAsync(COLLECTION_NAME, id, shipping);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo kaydı güncellenirken hata oluştu");
-                return StatusCode(500, "Kargo kaydı güncellenirken bir hata oluştu");
-            }
+            if (!UserOwnsShipping(existing))
+                return Forbid();
+
+            await _shippingService.UpdateShippingStatusAsync(id, statusDto);
+            return NoContent();
         }
 
-        [HttpPost("{id}/events")]
-        public async Task<ActionResult> AddEvent(string id, [FromBody] ShippingEvent shippingEvent)
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> Delete(string id)
         {
-            try
-            {
-                var shipping = await _firestoreService.GetDocumentAsync<Shipping>(COLLECTION_NAME, id);
-                if (shipping == null)
-                    return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
+            var existing = await _shippingService.GetShippingByIdAsync(id);
+            if (existing == null)
+                return NotFound($"ID: {id} olan kargo kaydı bulunamadı");
 
-                shippingEvent.Timestamp = DateTime.UtcNow;
-                shipping.Events.Add(shippingEvent);
-                shipping.Status = shippingEvent.Status;
-                shipping.CurrentLocation = shippingEvent.Location;
+            if (!UserOwnsShipping(existing))
+                return Forbid();
 
-                await _firestoreService.UpdateDocumentAsync(COLLECTION_NAME, id, shipping);
-                return Ok(new { message = "Kargo durumu güncellendi" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Kargo durumu eklenirken hata oluştu");
-                return StatusCode(500, "Kargo durumu eklenirken bir hata oluştu");
-            }
+            await _shippingService.DeleteShippingAsync(id);
+            return NoContent();
         }
 
-        // Excel İşlemleri
-        [HttpPost("import")]
-        public async Task<ActionResult> ImportFromExcel(IFormFile file)
+        private bool UserOwnsShipping(ShippingDto shipping)
         {
-            try
+            if (_sellerSettings.UseSharedSeller)
             {
-                if (file == null || file.Length == 0)
-                    return BadRequest("Dosya seçilmedi");
-
-                if (!file.FileName.EndsWith(".xlsx") && !file.FileName.EndsWith(".xls"))
-                    return BadRequest("Sadece Excel dosyaları (.xlsx, .xls) yüklenebilir");
-
-                using var stream = file.OpenReadStream();
-                var shippingList = await _excelService.ImportShippingFromExcel(stream);
-
-                foreach (var shipping in shippingList)
-                {
-                    await _firestoreService.AddDocumentAsync(COLLECTION_NAME, shipping);
-                }
-
-                return Ok(new { message = $"{shippingList.Count} kargo kaydı başarıyla içe aktarıldı", count = shippingList.Count });
+                return true;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Excel import sırasında hata oluştu");
-                return StatusCode(500, "Excel dosyası içe aktarılırken bir hata oluştu: " + ex.Message);
-            }
-        }
 
-        [HttpGet("export")]
-        public async Task<ActionResult> ExportToExcel()
-        {
-            try
-            {
-                var shippingList = await _firestoreService.GetAllDocumentsAsync<Shipping>(COLLECTION_NAME);
-                var excelBytes = await _excelService.ExportShippingToExcel(shippingList);
-                
-                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    $"shipping_{DateTime.Now:yyyyMMdd}.xlsx");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Excel export sırasında hata oluştu");
-                return StatusCode(500, "Excel dosyası oluşturulurken bir hata oluştu");
-            }
-        }
-
-        [HttpGet("template")]
-        public async Task<ActionResult> DownloadTemplate()
-        {
-            try
-            {
-                var excelBytes = await _excelService.GenerateShippingTemplate();
-                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    "shipping_template.xlsx");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Template oluşturulurken hata oluştu");
-                return StatusCode(500, "Şablon dosyası oluşturulurken bir hata oluştu");
-            }
+            var currentUserId = _currentUserService.GetUserIdOrThrow();
+            return string.Equals(shipping.SellerId, currentUserId, StringComparison.Ordinal);
         }
     }
 }

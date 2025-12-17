@@ -16,10 +16,12 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { productService } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 export default function ExcelPage() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const { showToast } = useToast();
 
   const onDrop = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -30,15 +32,19 @@ export default function ExcelPage() {
 
     try {
       await productService.importFromExcel(file);
+      const successMsg = 'Excel dosyası başarıyla yüklendi ve ürünler eklendi!';
       setMessage({
         type: 'success',
-        text: 'Excel dosyası başarıyla yüklendi ve ürünler eklendi!',
+        text: successMsg,
       });
+      showToast(successMsg, 'success');
     } catch (error) {
+      const errorMsg = 'Dosya yüklenirken bir hata oluştu. Lütfen dosyanızı kontrol edin.';
       setMessage({
         type: 'error',
-        text: 'Dosya yüklenirken bir hata oluştu. Lütfen dosyanızı kontrol edin.',
+        text: errorMsg,
       });
+      showToast(errorMsg, 'error');
       console.error('Excel yükleme hatası:', error);
     } finally {
       setUploading(false);
@@ -65,12 +71,14 @@ export default function ExcelPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      showToast('Şablon başarıyla indirildi', 'success');
     } catch (error) {
       console.error('Şablon indirme hatası:', error);
       setMessage({
         type: 'error',
         text: 'Şablon indirilirken bir hata oluştu.',
       });
+      showToast('Şablon indirilirken bir hata oluştu', 'error');
     }
   };
 
@@ -85,16 +93,19 @@ export default function ExcelPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      const successMsg = 'Ürünler başarıyla Excel dosyasına aktarıldı!';
       setMessage({
         type: 'success',
-        text: 'Ürünler başarıyla Excel dosyasına aktarıldı!',
+        text: successMsg,
       });
+      showToast(successMsg, 'success');
     } catch (error) {
       console.error('Export hatası:', error);
       setMessage({
         type: 'error',
         text: 'Ürünler aktarılırken bir hata oluştu.',
       });
+      showToast('Ürünler aktarılırken bir hata oluştu', 'error');
     }
   };
 

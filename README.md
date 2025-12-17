@@ -13,6 +13,7 @@ Bu proje, e-ticaret satıcılarının ürün, sipariş ve kargo bilgilerini **Ex
 - ✅ Kargo takip sistemi
 - ✅ RESTful API
 - ✅ Swagger/OpenAPI dokümantasyonu
+- ✅ Firebase Auth + HttpOnly cookie tabanlı oturum yönetimi
 
 ### Excel Özellikleri
 - 📊 Excel şablon indirme
@@ -53,11 +54,18 @@ Swagger UI: `https://localhost:5001/swagger`
 
 ## 📚 API Endpoints
 
+### Kimlik Doğrulama (Auth)
+
+```
+POST   /api/auth/register        - Yeni kullanıcı oluştur
+POST   /api/auth/session         - Firebase ID token gönderip HttpOnly cookie oluştur
+DELETE /api/auth/session         - Oturumu sonlandır
+```
+
 ### Ürünler (Products)
 
 ```
-GET    /api/products              - Tüm ürünleri listele
-GET    /api/products?sellerId=X   - Satıcıya göre ürünleri listele
+GET    /api/products              - Aktif kullanıcının ürünlerini listele
 GET    /api/products/{id}         - Tek ürün getir
 POST   /api/products              - Yeni ürün ekle
 PUT    /api/products/{id}         - Ürün güncelle
@@ -66,14 +74,13 @@ DELETE /api/products/{id}         - Ürün sil
 # Excel İşlemleri
 GET    /api/products/template            - Excel şablonu indir
 GET    /api/products/export              - Ürünleri Excel'e aktar
-POST   /api/products/import?sellerId=X   - Excel'den ürün yükle
+POST   /api/products/import              - Excel'den ürün yükle (kimlik doğrulanan satıcıya göre)
 ```
 
 ### Siparişler (Orders)
 
 ```
-GET    /api/orders                - Tüm siparişleri listele
-GET    /api/orders?sellerId=X     - Satıcıya göre siparişleri listele
+GET    /api/orders                - Aktif kullanıcının siparişlerini listele
 GET    /api/orders/{id}           - Tek sipariş getir
 POST   /api/orders                - Yeni sipariş oluştur
 PUT    /api/orders/{id}           - Sipariş güncelle
@@ -83,7 +90,7 @@ PUT    /api/orders/{id}/status    - Sipariş durumu güncelle
 ### Kargo Takibi (Shipping)
 
 ```
-GET    /api/shipping                     - Tüm kargo kayıtlarını listele
+GET    /api/shipping                     - Aktif kullanıcının kargo kayıtlarını listele
 GET    /api/shipping/{id}                - Kargo kaydı getir
 GET    /api/shipping/tracking/{number}   - Takip numarasıyla sorgula
 GET    /api/shipping/order/{orderId}     - Sipariş için kargo bilgisi
@@ -150,11 +157,19 @@ POST   /api/shipping/import       - Excel'den kargo bilgisi yükle
 - Events (List<ShippingEvent>)
 - EstimatedDeliveryDate, ActualDeliveryDate
 
+## 🔐 Kimlik Doğrulama Akışı
+
+1. Frontend Firebase client'ı ile `signInWithEmailAndPassword` veya `createUserWithEmailAndPassword` çağrılır.
+2. Firebase'den alınan ID token `POST /api/auth/session` endpoint'ine gönderilir.
+3. Backend token'ı doğrular ve HttpOnly + Secure cookie'ye yazar.
+4. Axios istekleri `withCredentials: true` olduğu için tarayıcı çerezi otomatik gönderir.
+5. Çıkışta `DELETE /api/auth/session` çağrılır ve cookie silinir.
+
 ## 🔐 Güvenlik Notları
 
 - Firebase credentials dosyasını `.gitignore`'a ekleyin
 - Üretim ortamında çevre değişkenleri kullanın
-- API için authentication ekleyin (JWT, OAuth vb.)
+- Tüm kimlik doğrulama tarayıcıya görünmeyen HttpOnly cookie üzerinden yürütülür; `localStorage`'da token tutulmaz
 
 ## 📱 Frontend Geliştirme
 

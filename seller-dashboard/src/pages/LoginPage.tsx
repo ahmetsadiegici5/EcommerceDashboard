@@ -4,6 +4,8 @@ import { Box, TextField, Button, Typography, Container, Alert, Tabs, Tab, Paper 
 import { Lock } from '@mui/icons-material';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { api } from '../services/apiConfig';
+import { useToast } from '../contexts/ToastContext';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -12,6 +14,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,14 +24,14 @@ export default function LoginPage() {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const token = await userCredential.user.getIdToken();
+            await api.post('/Auth/session', { idToken: token });
             
-            localStorage.setItem('token', token);
-            localStorage.setItem('userEmail', email);
-            
+            showToast('Giriş başarılı', 'success');
             navigate('/');
         } catch (err: any) {
             console.error('Login error:', err);
             setError(err.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+            showToast('Giriş başarısız', 'error');
         } finally {
             setLoading(false);
         }
@@ -42,33 +45,43 @@ export default function LoginPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const token = await userCredential.user.getIdToken();
+            await api.post('/Auth/session', { idToken: token });
             
-            localStorage.setItem('token', token);
-            localStorage.setItem('userEmail', email);
-            
+            showToast('Kayıt başarılı', 'success');
             navigate('/');
         } catch (err: any) {
             console.error('Register error:', err);
             setError(err.message || 'Kayıt başarısız. Lütfen bilgilerinizi kontrol edin.');
+            showToast('Kayıt başarısız', 'error');
         } finally {
             setLoading(false);
         }
     };
 
     return (
+        <Box 
+            sx={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                bgcolor: 'background.default'
+            }}
+        >
         <Container component="main" maxWidth="xs">
             <Box
                 sx={{
-                    marginTop: 8,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                 }}
             >
-                <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+                <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 4 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Lock sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
-                        <Typography component="h1" variant="h5" gutterBottom>
+                        <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: '50%', mb: 2, color: 'white' }}>
+                            <Lock sx={{ fontSize: 32 }} />
+                        </Box>
+                        <Typography component="h1" variant="h5" gutterBottom fontWeight="bold">
                             Satıcı Paneli
                         </Typography>
 
@@ -124,5 +137,6 @@ export default function LoginPage() {
                 </Paper>
             </Box>
         </Container>
+        </Box>
     );
 }

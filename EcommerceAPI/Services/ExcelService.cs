@@ -3,7 +3,7 @@ using EcommerceAPI.Models;
 
 namespace EcommerceAPI.Services
 {
-    public class ExcelService
+    public class ExcelService : IExcelService
     {
         public ExcelService()
         {
@@ -13,7 +13,7 @@ namespace EcommerceAPI.Services
 
         #region Product Import/Export
 
-        public async Task<List<Product>> ImportProductsFromExcel(Stream excelStream, string sellerId)
+        public Task<List<Product>> ImportProductsFromExcel(Stream excelStream, string sellerId)
         {
             var products = new List<Product>();
 
@@ -24,24 +24,41 @@ namespace EcommerceAPI.Services
 
                 for (int row = 2; row <= rowCount; row++) // 1. satır başlık
                 {
+                    // Boş satır kontrolü
+                    if (string.IsNullOrWhiteSpace(worksheet.Cells[row, 1].Value?.ToString()))
+                        continue;
+
+                    double price = 0;
+                    int stock = 0;
+                    bool isActive = true;
+
+                    double.TryParse(worksheet.Cells[row, 3].Value?.ToString(), out price);
+                    int.TryParse(worksheet.Cells[row, 4].Value?.ToString(), out stock);
+                    
+                    var isActiveStr = worksheet.Cells[row, 8].Value?.ToString();
+                    if (!string.IsNullOrEmpty(isActiveStr))
+                    {
+                        bool.TryParse(isActiveStr, out isActive);
+                    }
+
                     var product = new Product
                     {
                         Name = worksheet.Cells[row, 1].Value?.ToString() ?? "",
                         Description = worksheet.Cells[row, 2].Value?.ToString() ?? "",
-                        Price = double.Parse(worksheet.Cells[row, 3].Value?.ToString() ?? "0"),
-                        Stock = int.Parse(worksheet.Cells[row, 4].Value?.ToString() ?? "0"),
+                        Price = price,
+                        Stock = stock,
                         Category = worksheet.Cells[row, 5].Value?.ToString() ?? "",
                         SKU = worksheet.Cells[row, 6].Value?.ToString() ?? "",
                         ImageUrl = worksheet.Cells[row, 7].Value?.ToString(),
                         SellerId = sellerId,
-                        IsActive = bool.Parse(worksheet.Cells[row, 8].Value?.ToString() ?? "true")
+                        IsActive = isActive
                     };
 
                     products.Add(product);
                 }
             }
 
-            return products;
+            return Task.FromResult(products);
         }
 
         public async Task<byte[]> ExportProductsToExcel(List<Product> products)
@@ -134,7 +151,7 @@ namespace EcommerceAPI.Services
 
         #region Shipping Import/Export
 
-        public async Task<List<Shipping>> ImportShippingFromExcel(Stream excelStream)
+        public Task<List<Shipping>> ImportShippingFromExcel(Stream excelStream)
         {
             var shippingList = new List<Shipping>();
 
@@ -158,7 +175,7 @@ namespace EcommerceAPI.Services
                 }
             }
 
-            return shippingList;
+            return Task.FromResult(shippingList);
         }
 
         public async Task<byte[]> ExportShippingToExcel(List<Shipping> shippingList)

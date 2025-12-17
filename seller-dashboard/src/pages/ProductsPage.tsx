@@ -14,16 +14,19 @@ import {
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { productService } from '../services/api';
 import type { Product } from '../types';
+import { useToast } from '../contexts/ToastContext';
+
+type ProductFormData = Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'updatedAt'>;
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<Omit<Product, 'id'>>({
+  const createEmptyForm = (): ProductFormData => ({
     name: '',
     description: '',
     price: 0,
@@ -31,21 +34,25 @@ export default function ProductsPage() {
     category: '',
     sku: '',
     imageUrl: '',
-    sellerId: 'shared', // Tüm kullanıcılar için ortak
     isActive: true,
   });
+
+  const [formData, setFormData] = useState<ProductFormData>(createEmptyForm());
+  const { showToast } = useToast();
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = async (manual = false) => {
     try {
       setLoading(true);
       const data = await productService.getAll();
       setProducts(data);
+      if (manual) showToast('Ürünler güncellendi', 'success');
     } catch (error) {
       console.error('Ürünler yüklenirken hata:', error);
+      showToast('Ürünler yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -54,20 +61,11 @@ export default function ProductsPage() {
   const handleOpenDialog = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      const { sellerId: _sellerId, createdAt: _createdAt, updatedAt: _updatedAt, id: _id, ...rest } = product;
+      setFormData(rest);
     } else {
       setEditingProduct(null);
-      setFormData({
-        name: '',
-        description: '',
-        price: 0,
-        stock: 0,
-        category: '',
-        sku: '',
-        imageUrl: '',
-        sellerId: 'shared',
-        isActive: true,
-      });
+      setFormData(createEmptyForm());
     }
     setOpenDialog(true);
   };
@@ -81,13 +79,16 @@ export default function ProductsPage() {
     try {
       if (editingProduct?.id) {
         await productService.update(editingProduct.id, formData);
+        showToast('Ürün güncellendi', 'success');
       } else {
         await productService.create(formData);
+        showToast('Ürün oluşturuldu', 'success');
       }
       handleCloseDialog();
       loadProducts();
     } catch (error) {
       console.error('Ürün kaydedilirken hata:', error);
+      showToast('Ürün kaydedilirken hata oluştu', 'error');
     }
   };
 
@@ -95,9 +96,11 @@ export default function ProductsPage() {
     if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
       try {
         await productService.delete(id);
+        showToast('Ürün silindi', 'success');
         loadProducts();
       } catch (error) {
         console.error('Ürün silinirken hata:', error);
+        showToast('Ürün silinirken hata oluştu', 'error');
       }
     }
   };
@@ -160,13 +163,24 @@ export default function ProductsPage() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Ürünler</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Yeni Ürün
-        </Button>
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadProducts(true)}
+            disabled={loading}
+            sx={{ mr: 2 }}
+          >
+            Yenile
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Yeni Ürün
+          </Button>
+        </Box>
       </Box>
 
       <DataGrid

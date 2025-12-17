@@ -49,6 +49,12 @@ namespace EcommerceAPI.Models
 
         [FirestoreProperty]
         public DateTime? DeliveredDate { get; set; }
+
+        [FirestoreProperty]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [FirestoreProperty]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     [FirestoreData]

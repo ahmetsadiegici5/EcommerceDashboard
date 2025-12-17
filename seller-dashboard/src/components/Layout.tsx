@@ -12,6 +12,9 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Avatar,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -20,8 +23,12 @@ import {
   Upload as UploadIcon,
   ShoppingCart as ShoppingCartIcon,
   LocalShipping as ShippingIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 const drawerWidth = 240;
 
@@ -31,11 +38,33 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
+  const { showToast } = useToast();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      showToast('Çıkış yapıldı', 'success');
+      navigate('/login');
+    } catch (error) {
+      showToast('Çıkış yapılırken hata oluştu', 'error');
+    }
+    handleMenuClose();
   };
 
   const menuItems = [
@@ -48,15 +77,15 @@ export default function Layout({ children }: LayoutProps) {
 
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
+      <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2 }}>
+        <Typography variant="h6" noWrap component="div" sx={{ color: 'white', fontWeight: 'bold' }}>
           Satıcı Paneli
         </Typography>
       </Toolbar>
-      <Divider />
-      <List>
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+      <List sx={{ px: 1, mt: 2 }}>
         {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
+          <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
             <ListItemButton
               selected={location.pathname === item.path}
               onClick={() => navigate(item.path)}
@@ -89,9 +118,41 @@ export default function Layout({ children }: LayoutProps) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             E-Ticaret Satıcı Dashboard
           </Typography>
+          
+          {/* User Menu */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ display: { xs: 'none', md: 'block' } }}>
+              {user?.email}
+            </Typography>
+            <IconButton onClick={handleMenuOpen} color="inherit">
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark' }}>
+                <PersonIcon fontSize="small" />
+              </Avatar>
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  {user?.email}
+                </Typography>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                Çıkış Yap
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
       <Box

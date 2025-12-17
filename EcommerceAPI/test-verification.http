@@ -1,0 +1,19 @@
+### Test 1: API Sağlık Kontrolü (Ürünleri Listele)
+# Firebase bağlantısını ve API'nin çalıştığını doğrular.
+GET http://localhost:5000/api/products?page=1&pageSize=5
+Accept: application/json
+
+### Test 2: Siparişleri Listele
+# Sipariş verilerinin Firebase'den çekilebildiğini doğrular.
+GET http://localhost:5000/api/orders?page=1&pageSize=5
+Accept: application/json
+
+### Test 3: Kargo Bilgilerini Listele
+# Kargo servisinin çalıştığını doğrular.
+GET http://localhost:5000/api/shipping?page=1&pageSize=5
+Accept: application/json
+
+### Test 4: Excel Şablonu İndirme (Backend Testi)
+# Excel servisinin şablon oluşturabildiğini doğrular.
+GET http://localhost:5000/api/products/template
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet

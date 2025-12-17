@@ -25,9 +25,11 @@ import type { GridColDef } from '@mui/x-data-grid';
 import {
   Visibility as ViewIcon,
   Edit as EditIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { orderService } from '../services/api';
 import type { Order } from '../types';
+import { useToast } from '../contexts/ToastContext';
 
 const STATUS_LABELS: Record<string, string> = {
   Pending: 'Beklemede',
@@ -52,18 +54,21 @@ export default function OrdersPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  const { showToast } = useToast();
 
   useEffect(() => {
     loadOrders();
   }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = async (manual = false) => {
     try {
       setLoading(true);
       const data = await orderService.getAll();
       setOrders(data);
+      if (manual) showToast('Siparişler güncellendi', 'success');
     } catch (error) {
       console.error('Siparişler yüklenirken hata:', error);
+      showToast('Siparişler yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -86,9 +91,11 @@ export default function OrdersPage() {
     try {
       await orderService.updateStatus(selectedOrder.id, newStatus);
       setStatusDialogOpen(false);
+      showToast('Sipariş durumu güncellendi', 'success');
       loadOrders();
     } catch (error) {
       console.error('Durum güncellenirken hata:', error);
+      showToast('Durum güncellenirken hata oluştu', 'error');
     }
   };
 
@@ -150,6 +157,14 @@ export default function OrdersPage() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Siparişler</Typography>
+        <Button 
+          variant="outlined" 
+          startIcon={<RefreshIcon />} 
+          onClick={() => loadOrders(true)}
+          disabled={loading}
+        >
+          Yenile
+        </Button>
       </Box>
 
       <DataGrid

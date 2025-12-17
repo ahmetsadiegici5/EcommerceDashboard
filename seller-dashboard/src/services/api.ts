@@ -1,10 +1,14 @@
 import { api } from './apiConfig';
 import type { Product, Order, Shipping, DashboardStats } from '../types';
 
+type ProductPayload = Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'updatedAt'>;
+
 // Product Service
 export const productService = {
   getAll: async (): Promise<Product[]> => {
-    const response = await api.get('/Products');
+    const response = await api.get('/Products', {
+      params: { page: 1, pageSize: 1000 },
+    });
     return response.data;
   },
 
@@ -13,12 +17,12 @@ export const productService = {
     return response.data;
   },
 
-  create: async (product: Omit<Product, 'id'>): Promise<{ id: string }> => {
+  create: async (product: ProductPayload): Promise<{ id: string }> => {
     const response = await api.post('/Products', product);
     return response.data;
   },
 
-  update: async (id: string, product: Product): Promise<void> => {
+  update: async (id: string, product: ProductPayload): Promise<void> => {
     await api.put(`/Products/${id}`, product);
   },
 
@@ -55,7 +59,9 @@ export const productService = {
 // Order Service
 export const orderService = {
   getAll: async (): Promise<Order[]> => {
-    const response = await api.get('/Orders');
+    const response = await api.get('/Orders', {
+      params: { page: 1, pageSize: 1000 },
+    });
     return response.data;
   },
 
@@ -77,12 +83,14 @@ export const orderService = {
 // Shipping Service
 export const shippingService = {
   getAll: async (): Promise<Shipping[]> => {
-    const response = await api.get('/Shipping');
+    const response = await api.get('/Shipping', {
+      params: { page: 1, pageSize: 1000 },
+    });
     return response.data;
   },
 
   getByTrackingNumber: async (trackingNumber: string): Promise<Shipping> => {
-    const response = await api.get(`/Shipping/track/${trackingNumber}`);
+    const response = await api.get(`/Shipping/tracking/${trackingNumber}`);
     return response.data;
   },
 
@@ -97,7 +105,7 @@ export const shippingService = {
     location: string,
     description: string
   ): Promise<void> => {
-    await api.post(`/Shipping/${id}/event`, {
+    await api.post(`/Shipping/${id}/events`, {
       status,
       location,
       description,

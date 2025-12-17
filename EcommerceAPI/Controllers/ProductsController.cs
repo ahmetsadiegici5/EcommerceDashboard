@@ -1,6 +1,11 @@
+using System;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
-using EcommerceAPI.Models;
+using EcommerceAPI.Configuration;
+using EcommerceAPI.DTOs;
 using EcommerceAPI.Services;
+using EcommerceAPI.Models;
+using Microsoft.Extensions.Options;
 
 namespace EcommerceAPI.Controllers
 {
@@ -8,192 +13,162 @@ namespace EcommerceAPI.Controllers
     [Route("api/[controller]")]
     public class ProductsController : ControllerBase
     {
-        private readonly FirestoreService _firestoreService;
-        private readonly ExcelService _excelService;
-        private readonly ILogger<ProductsController> _logger;
-        private const string COLLECTION_NAME = "products";
+        private readonly IProductService _productService;
+        private readonly IExcelService _excelService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly SellerSettings _sellerSettings;
 
         public ProductsController(
-            FirestoreService firestoreService, 
-            ExcelService excelService,
-            ILogger<ProductsController> logger)
+            IProductService productService, 
+            IExcelService excelService,
+            ICurrentUserService currentUserService,
+            IOptions<SellerSettings> sellerOptions)
         {
-            _firestoreService = firestoreService;
+            _productService = productService;
             _excelService = excelService;
-            _logger = logger;
+            _currentUserService = currentUserService;
+            _sellerSettings = sellerOptions.Value;
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Product>>> GetAll([FromQuery] string? sellerId = null)
+        public async Task<ActionResult<List<ProductDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            try
+            if (_sellerSettings.UseSharedSeller)
             {
-                if (!string.IsNullOrEmpty(sellerId))
-                {
-                    var products = await _firestoreService.QueryDocumentsAsync<Product>(COLLECTION_NAME, "SellerId", sellerId);
-                    return Ok(products);
-                }
+                var sharedProducts = await _productService.GetAllProductsAsync(page, pageSize);
+                return Ok(sharedProducts);
+            }
 
-                var allProducts = await _firestoreService.GetAllDocumentsAsync<Product>(COLLECTION_NAME);
-                return Ok(allProducts);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ürünler getirilirken hata oluştu");
-                return StatusCode(500, "Ürünler getirilirken bir hata oluştu");
-            }
+            var sellerId = _currentUserService.GetUserIdOrThrow();
+            var products = await _productService.GetProductsForSellerAsync(sellerId, page, pageSize);
+            return Ok(products);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetById(string id)
+        public async Task<ActionResult<ProductDto>> GetById(string id)
         {
-            try
-            {
-                var product = await _firestoreService.GetDocumentAsync<Product>(COLLECTION_NAME, id);
-                
-                if (product == null)
-                    return NotFound($"ID: {id} olan ürün bulunamadı");
+            var product = await _productService.GetProductByIdAsync(id);
+            
+            if (product == null)
+                return NotFound($"ID: {id} olan ürün bulunamadı");
 
-                return Ok(product);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ürün getirilirken hata oluştu");
-                return StatusCode(500, "Ürün getirilirken bir hata oluştu");
-            }
+            if (!UserOwnsProduct(product))
+                return Forbid();
+
+            return Ok(product);
         }
 
         [HttpPost]
-        public async Task<ActionResult<string>> Create([FromBody] Product product)
+        public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto productDto)
         {
-            try
-            {
-                product.CreatedAt = DateTime.UtcNow;
-                product.UpdatedAt = DateTime.UtcNow;
-                
-                var id = await _firestoreService.AddDocumentAsync(COLLECTION_NAME, product);
-                return CreatedAtAction(nameof(GetById), new { id }, new { id });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ürün eklenirken hata oluştu");
-                return StatusCode(500, "Ürün eklenirken bir hata oluştu");
-            }
+            // Güvenlik: SellerId'yi token'dan al
+            productDto.SellerId = _currentUserService.GetUserIdOrThrow();
+
+            var createdProduct = await _productService.CreateProductAsync(productDto);
+            return CreatedAtAction(nameof(GetById), new { id = createdProduct.Id }, createdProduct);
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> Update(string id, [FromBody] Product product)
+        public async Task<ActionResult> Update(string id, [FromBody] UpdateProductDto productDto)
         {
-            try
-            {
-                var existing = await _firestoreService.GetDocumentAsync<Product>(COLLECTION_NAME, id);
-                if (existing == null)
-                    return NotFound($"ID: {id} olan ürün bulunamadı");
+            var existing = await _productService.GetProductByIdAsync(id);
+            if (existing == null)
+                return NotFound($"ID: {id} olan ürün bulunamadı");
 
-                product.Id = id;
-                product.UpdatedAt = DateTime.UtcNow;
-                product.CreatedAt = existing.CreatedAt;
-                
-                await _firestoreService.UpdateDocumentAsync(COLLECTION_NAME, id, product);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ürün güncellenirken hata oluştu");
-                return StatusCode(500, "Ürün güncellenirken bir hata oluştu");
-            }
+            if (!UserOwnsProduct(existing))
+                return Forbid();
+
+            await _productService.UpdateProductAsync(id, productDto);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(string id)
         {
-            try
-            {
-                var existing = await _firestoreService.GetDocumentAsync<Product>(COLLECTION_NAME, id);
-                if (existing == null)
-                    return NotFound($"ID: {id} olan ürün bulunamadı");
+            var existing = await _productService.GetProductByIdAsync(id);
+            if (existing == null)
+                return NotFound($"ID: {id} olan ürün bulunamadı");
 
-                await _firestoreService.DeleteDocumentAsync(COLLECTION_NAME, id);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ürün silinirken hata oluştu");
-                return StatusCode(500, "Ürün silinirken bir hata oluştu");
-            }
+            if (!UserOwnsProduct(existing))
+                return Forbid();
+
+            await _productService.DeleteProductAsync(id);
+            return NoContent();
         }
 
         // Excel İşlemleri
         [HttpPost("import")]
-        public async Task<ActionResult> ImportFromExcel(IFormFile file, [FromQuery] string sellerId)
+        public async Task<ActionResult> ImportFromExcel(IFormFile file)
         {
-            try
-            {
-                if (file == null || file.Length == 0)
-                    return BadRequest("Dosya seçilmedi");
+            var sellerId = _currentUserService.GetUserIdOrThrow();
 
-                if (!file.FileName.EndsWith(".xlsx") && !file.FileName.EndsWith(".xls"))
-                    return BadRequest("Sadece Excel dosyaları (.xlsx, .xls) yüklenebilir");
+            if (file == null || file.Length == 0)
+                return BadRequest("Dosya seçilmedi");
 
-                using var stream = file.OpenReadStream();
-                var products = await _excelService.ImportProductsFromExcel(stream, sellerId);
+            if (!file.FileName.EndsWith(".xlsx") && !file.FileName.EndsWith(".xls"))
+                return BadRequest("Sadece Excel dosyaları (.xlsx, .xls) yüklenebilir");
 
-                foreach (var product in products)
-                {
-                    await _firestoreService.AddDocumentAsync(COLLECTION_NAME, product);
-                }
+            using var stream = file.OpenReadStream();
+            var result = await _productService.ImportProductsAsync(stream, sellerId);
 
-                return Ok(new { message = $"{products.Count} ürün başarıyla içe aktarıldı", count = products.Count });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Excel import sırasında hata oluştu");
-                return StatusCode(500, "Excel dosyası içe aktarılırken bir hata oluştu: " + ex.Message);
-            }
+            if (result.SuccessCount == 0 && result.FailureCount > 0)
+                return StatusCode(500, new { message = result.Message, errors = result.Errors });
+
+            return Ok(new 
+            { 
+                message = result.Message, 
+                count = result.SuccessCount,
+                errors = result.Errors
+            });
         }
 
         [HttpGet("export")]
-        public async Task<ActionResult> ExportToExcel([FromQuery] string? sellerId = null)
+        public async Task<ActionResult> ExportToExcel()
         {
-            try
+            var sellerId = _currentUserService.GetUserIdOrThrow(); 
+            
+            var productDtos = await _productService.GetProductsForSellerAsync(sellerId);
+            
+            // Map DTOs back to Models for ExcelService
+            var products = productDtos.Select(p => new Product
             {
-                List<Product> products;
-                
-                if (!string.IsNullOrEmpty(sellerId))
-                {
-                    products = await _firestoreService.QueryDocumentsAsync<Product>(COLLECTION_NAME, "SellerId", sellerId);
-                }
-                else
-                {
-                    products = await _firestoreService.GetAllDocumentsAsync<Product>(COLLECTION_NAME);
-                }
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                Stock = p.Stock,
+                Category = p.Category,
+                SKU = p.SKU,
+                ImageUrl = p.ImageUrl,
+                SellerId = p.SellerId,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                IsActive = p.IsActive
+            }).ToList();
 
-                var excelBytes = await _excelService.ExportProductsToExcel(products);
-                
-                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    $"products_{DateTime.Now:yyyyMMdd}.xlsx");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Excel export sırasında hata oluştu");
-                return StatusCode(500, "Excel dosyası oluşturulurken bir hata oluştu");
-            }
+            var excelBytes = await _excelService.ExportProductsToExcel(products);
+            
+            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                $"products_{DateTime.Now:yyyyMMdd}.xlsx");
         }
 
         [HttpGet("template")]
         public async Task<ActionResult> DownloadTemplate()
         {
-            try
+            var excelBytes = await _excelService.GenerateProductTemplate();
+            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                "product_template.xlsx");
+        }
+
+        private bool UserOwnsProduct(ProductDto product)
+        {
+            if (_sellerSettings.UseSharedSeller)
             {
-                var excelBytes = await _excelService.GenerateProductTemplate();
-                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    "product_template.xlsx");
+                return true;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Template oluşturulurken hata oluştu");
-                return StatusCode(500, "Şablon dosyası oluşturulurken bir hata oluştu");
-            }
+
+            var currentUserId = _currentUserService.GetUserIdOrThrow();
+            return string.Equals(product.SellerId, currentUserId, StringComparison.Ordinal);
         }
     }
 }
