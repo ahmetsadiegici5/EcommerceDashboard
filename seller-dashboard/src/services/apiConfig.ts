@@ -11,10 +11,12 @@ export const api = axios.create({
     timeout: 30000, // 30 saniye timeout
 });
 
-// Request interceptor - Token refresh için
+// Request interceptor - Token ve Cookie gönderme
 api.interceptors.request.use(
     (config) => {
-        // İstek başlamadan önce yapılacak işlemler
+        // HttpOnly cookie otomatik gönderilecek (withCredentials: true)
+        // Token gerekirse Firebase Client SDK'den alınıp gönderileceğiz
+        console.debug(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
         return config;
     },
     (error) => {
@@ -24,15 +26,18 @@ api.interceptors.request.use(
 
 // Response interceptor - 401 kontrolü ve hata işleme
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.debug(`API Response: ${response.status} ${response.config.url}`);
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
+        console.error(`API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
         
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
-            console.warn('401 Unauthorized hatası alındı. Oturum yenileniyor...');
+            console.warn('401 Unauthorized hatası alındı. Login sayfasına yönlendiriliyor...');
             
-            // Token yenileme işlemi AuthContext'te yapılıyor
             // Kullanıcıyı login sayfasına yönlendir
             if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
                 window.location.href = '/login';

@@ -6,11 +6,24 @@ namespace EcommerceAPI.Services
 {
     public class FirestoreService : IFirestoreService
     {
-        private readonly FirestoreDb _firestoreDb;
+        private static FirestoreDb? _firestoreDb;
+        private static string? _projectId;
+        private readonly IConfiguration _configuration;
+
+        private FirestoreDb Db
+        {
+            get
+            {
+                if (_firestoreDb == null)
+                    throw new InvalidOperationException("Firestore initialized değil. Initialize() çağrıldığından emin olun.");
+                return _firestoreDb;
+            }
+        }
 
         public FirestoreService(IConfiguration configuration)
         {
-            _firestoreDb = FirestoreDb.Create(configuration["Firebase:ProjectId"]);
+            _configuration = configuration;
+            // FirestoreDb singleton olarak Initialize'da oluşturuluyor
         }
 
         public static void Initialize(IConfiguration configuration, IWebHostEnvironment environment)
@@ -32,7 +45,7 @@ namespace EcommerceAPI.Services
                 var credentialsEnvVar = Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS");
                 var credentialsConfig = configuration["Firebase:Credentials"];
                 
-                string credentialPath = null;
+                string? credentialPath = null;
                 
                 // Önce ortam değişkenini dene, sonra config
                 if (!string.IsNullOrEmpty(credentialsEnvVar))
@@ -61,7 +74,7 @@ namespace EcommerceAPI.Services
                 try
                 {
                     // JSON string veya dosya yolu olabilir
-                    string credentialJson = null;
+                    string? credentialJson = null;
                     
                     if (credentialPath.StartsWith("{"))
                     {
@@ -101,7 +114,16 @@ namespace EcommerceAPI.Services
                             ProjectId = projectId
                         });
                         
-                        Console.WriteLine($"Firebase başarıyla başlatıldı. Project ID: {projectId}");
+                        // FirestoreDb'yi oluştur - FirestoreClientBuilder ile credentials kullan
+                        var builder = new FirestoreDbBuilder
+                        {
+                            ProjectId = projectId,
+                            Credential = credential
+                        };
+                        _firestoreDb = builder.Build();
+                        _projectId = projectId;
+                        
+                        Console.WriteLine($"Firebase ve Firestore başarıyla başlatıldı. Project ID: {projectId}");
                     }
                 }
                 catch (Exception ex)
@@ -113,13 +135,13 @@ namespace EcommerceAPI.Services
             }
         }
 
-        public FirestoreDb GetFirestoreDb() => _firestoreDb;
+        public FirestoreDb GetFirestoreDb() => Db;
 
         public async Task<T?> GetDocumentAsync<T>(string collectionName, string documentId) where T : class
         {
             try
             {
-                var docRef = _firestoreDb.Collection(collectionName).Document(documentId);
+                var docRef = Db.Collection(collectionName).Document(documentId);
                 var snapshot = await docRef.GetSnapshotAsync();
             
             if (snapshot.Exists)
@@ -147,7 +169,7 @@ namespace EcommerceAPI.Services
 
         public async Task<List<T>> GetAllDocumentsAsync<T>(string collectionName) where T : class
         {
-            var snapshot = await _firestoreDb.Collection(collectionName).GetSnapshotAsync();
+            var snapshot = await Db.Collection(collectionName).GetSnapshotAsync();
             var documents = new List<T>();
 
             foreach (var document in snapshot.Documents)
@@ -179,7 +201,7 @@ namespace EcommerceAPI.Services
 
             foreach (var chunk in chunks)
             {
-                var query = _firestoreDb.Collection(collectionName).WhereIn(FieldPath.DocumentId, chunk);
+                var query = Db.Collection(collectionName).WhereIn(FieldPath.DocumentId, chunk);
                 var snapshot = await query.GetSnapshotAsync();
 
                 foreach (var document in snapshot.Documents)
@@ -202,7 +224,7 @@ namespace EcommerceAPI.Services
         public async Task<List<T>> GetDocumentsPagedAsync<T>(string collectionName, int pageNumber, int pageSize, string? orderByField = null, bool descending = false) where T : class
         {
             var offset = (pageNumber - 1) * pageSize;
-            Query query = _firestoreDb.Collection(collectionName);
+            Query query = Db.Collection(collectionName);
 
             if (!string.IsNullOrEmpty(orderByField))
             {
@@ -232,25 +254,25 @@ namespace EcommerceAPI.Services
 
         public async Task<string> AddDocumentAsync<T>(string collectionName, T document) where T : class
         {
-            var docRef = await _firestoreDb.Collection(collectionName).AddAsync(document);
+            var docRef = await Db.Collection(collectionName).AddAsync(document);
             return docRef.Id;
         }
 
         public async Task UpdateDocumentAsync(string collectionName, string documentId, Dictionary<string, object> updates)
         {
-            var docRef = _firestoreDb.Collection(collectionName).Document(documentId);
+            var docRef = Db.Collection(collectionName).Document(documentId);
             await docRef.UpdateAsync(updates);
         }
 
         public async Task UpdateDocumentAsync<T>(string collectionName, string documentId, T document) where T : class
         {
-            var docRef = _firestoreDb.Collection(collectionName).Document(documentId);
+            var docRef = Db.Collection(collectionName).Document(documentId);
             await docRef.SetAsync(document, SetOptions.MergeAll);
         }
 
         public async Task DeleteDocumentAsync(string collectionName, string documentId)
         {
-            var docRef = _firestoreDb.Collection(collectionName).Document(documentId);
+            var docRef = Db.Collection(collectionName).Document(documentId);
             await docRef.DeleteAsync();
         }
 
@@ -263,7 +285,7 @@ namespace EcommerceAPI.Services
             int? limit = null,
             int? offset = null) where T : class
         {
-            Query query = _firestoreDb.Collection(collectionName).WhereEqualTo(field, value);
+            Query query = Db.Collection(collectionName).WhereEqualTo(field, value);
 
             if (!string.IsNullOrWhiteSpace(orderByField))
             {

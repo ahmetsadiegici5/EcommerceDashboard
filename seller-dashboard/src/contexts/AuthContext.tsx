@@ -2,20 +2,28 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { auth } from '../firebaseConfig';
 import { onIdTokenChanged, signOut, type User } from 'firebase/auth';
 import { api } from '../services/apiConfig';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  error: string | null;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, logout: async () => {} });
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  loading: true, 
+  logout: async () => {},
+  error: null
+});
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const previousUserRef = useRef<User | null>(null);
 
   const logout = useCallback(async () => {
@@ -23,9 +31,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await api.delete('/Auth/session').catch(() => undefined);
       await signOut(auth);
       setUser(null);
-    } catch (error) {
-      console.error('Çıkış yapılırken hata:', error);
-      throw error;
+    } catch (errorVal) {
+      console.error('Çıkış yapılırken hata:', errorVal);
+      throw errorVal;
     }
   }, []);
 
@@ -38,6 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setLoading(true);
+      setError(null);
 
       try {
         if (currentUser) {
@@ -58,9 +67,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         previousUserRef.current = currentUser;
-      } catch (error) {
-        console.error('Oturum oluşturulamadı:', error);
+      } catch (errorVal) {
+        console.error('Oturum oluşturulamadı:', errorVal);
+        const errorMessage = errorVal instanceof Error ? errorVal.message : 'Oturum oluşturulamadı';
         if (isMounted) {
+          setError(errorMessage);
           setUser(null);
         }
       } finally {
@@ -76,9 +87,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" bgcolor="#f5f5f5">
+        <Box textAlign="center">
+          <CircularProgress />
+          <Typography mt={2}>Yükleniyor...</Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" bgcolor="#f5f5f5">
+        <Box textAlign="center">
+          <Typography color="error" variant="h6">Hata oluştu</Typography>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, loading, logout, error }}>
+      {children}
     </AuthContext.Provider>
   );
 };
