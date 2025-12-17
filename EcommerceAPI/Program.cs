@@ -5,8 +5,25 @@ using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Firebase'i başlat
-FirestoreService.Initialize(builder.Configuration);
+// Environment'a göre configuration dosyası yükle
+if (builder.Environment.IsProduction())
+{
+    builder.Configuration.AddJsonFile("appsettings.Production.json", optional: false, reloadOnChange: true);
+}
+
+// Firebase'i başlat - ortam değişkenlerini kontrol et
+try
+{
+    FirestoreService.Initialize(builder.Configuration, builder.Environment);
+}
+catch (Exception ex)
+{
+    throw new InvalidOperationException(
+        "Firebase başlatılamadı. Lütfen ortam değişkenlerini kontrol edin:\n" +
+        "FIREBASE_PROJECT_ID: Firebase project ID\n" +
+        "FIREBASE_CREDENTIALS: Firebase JSON credentials (dosya yolu veya JSON string)\n" +
+        "Veya appsettings.json dosyasını kontrol edin.", ex);
+}
 
 // Add services to the container
 builder.Services.AddControllers();

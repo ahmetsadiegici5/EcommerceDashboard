@@ -10,53 +10,110 @@ namespace EcommerceAPI.Services
 
         public FirestoreService(IConfiguration configuration)
         {
-            Initialize(configuration);
             _firestoreDb = FirestoreDb.Create(configuration["Firebase:ProjectId"]);
         }
 
-        public static void Initialize(IConfiguration configuration)
+        public static void Initialize(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Console.WriteLine("FirestoreService.Initialize başlatılıyor...");
             var projectId = configuration["Firebase:ProjectId"];
             
+            if (string.IsNullOrEmpty(projectId))
+            {
+                throw new InvalidOperationException("Firebase:ProjectId yapılandırması bulunamadı.");
+            }
+            
             // Firebase Admin SDK'yı başlat
             if (FirebaseApp.DefaultInstance == null)
             {
-                Console.WriteLine("FirebaseApp.DefaultInstance null, yeni oluşturuluyor...");
-                var credentialPath = configuration["Firebase:CredentialPath"];
+                Console.WriteLine($"FirebaseApp.DefaultInstance null, {environment.EnvironmentName} ortamında yeni oluşturuluyor...");
+                
+                // 1. Ortam değişkenini kontrol et
+                var credentialsEnvVar = Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS");
+                var credentialsConfig = configuration["Firebase:Credentials"];
+                
+                string credentialPath = null;
+                
+                // Önce ortam değişkenini dene, sonra config
+                if (!string.IsNullOrEmpty(credentialsEnvVar))
+                {
+                    credentialPath = credentialsEnvVar;
+                }
+                else if (!string.IsNullOrEmpty(credentialsConfig))
+                {
+                    credentialPath = credentialsConfig;
+                }
+                else if (!environment.IsProduction())
+                {
+                    // Geliştirme ortamında default dosya yolunu dene
+                    credentialPath = "firebase-credentials.json";
+                }
                 
                 if (string.IsNullOrEmpty(credentialPath))
                 {
-                    throw new InvalidOperationException("Firebase:CredentialPath yapılandırması bulunamadı.");
+                    throw new InvalidOperationException(
+                        "Firebase credentials yapılandırması bulunamadı. Aşağıdakilerden birini ayarlayın:\n" +
+                        "1. FIREBASE_CREDENTIALS ortam değişkeni\n" +
+                        "2. Firebase:Credentials yapılandırması (appsettings.json veya Production)\n" +
+                        "3. Geliştirme ortamında: firebase-credentials.json dosyası");
                 }
                 
-                // Tam dosya yolunu oluştur - önce mevcut dizini dene
-                var currentDirectory = Directory.GetCurrentDirectory();
-                var fullPath = Path.Combine(currentDirectory, credentialPath);
-                
-                if (!File.Exists(fullPath))
+                try
                 {
-                    // AppContext.BaseDirectory'yi dene
-                    fullPath = Path.Combine(AppContext.BaseDirectory, credentialPath);
+                    // JSON string veya dosya yolu olabilir
+                    string credentialJson = null;
+                    
+                    if (credentialPath.StartsWith("{"))
+                    {
+                        // JSON string olarak gelen credentials
+                        credentialJson = credentialPath;
+                        Console.WriteLine("JSON string credentials kullanılıyor");
+                    }
+                    else
+                    {
+                        // Dosya yolu olarak gelen credentials
+                        var currentDirectory = Directory.GetCurrentDirectory();
+                        var fullPath = Path.Combine(currentDirectory, credentialPath);
+                        
+                        if (!File.Exists(fullPath))
+                        {
+                            fullPath = Path.Combine(AppContext.BaseDirectory, credentialPath);
+                        }
+                        
+                        if (!File.Exists(fullPath))
+                        {
+                            throw new FileNotFoundException($"Firebase credentials dosyası bulunamadı: {credentialPath}");
+                        }
+                        
+                        credentialJson = File.ReadAllText(fullPath);
+                        Console.WriteLine($"Firebase credentials dosyasından yüklendi: {fullPath}");
+                    }
+                    
+                    // Credentials'ı Google.Apis.Auth.OAuth2 ile parse et
+                    using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(credentialJson)))
+                    {
+                        var credential = GoogleCredential.FromStream(stream)
+                            .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+                        
+                        FirebaseApp.Create(new AppOptions()
+                        {
+                            Credential = credential,
+                            ProjectId = projectId
+                        });
+                        
+                        Console.WriteLine($"Firebase başarıyla başlatıldı. Project ID: {projectId}");
+                    }
                 }
-                
-                if (!File.Exists(fullPath))
+                catch (Exception ex)
                 {
-                    throw new FileNotFoundException($"Firebase credentials dosyası bulunamadı. Aranan yollar:\n" +
-                        $"1. {Path.Combine(currentDirectory, credentialPath)}\n" +
-                        $"2. {Path.Combine(AppContext.BaseDirectory, credentialPath)}");
+                    throw new InvalidOperationException(
+                        $"Firebase credentials yüklenirken hata oluştu. Credentials yolu/değeri: {credentialPath}\n" +
+                        $"Hata: {ex.Message}", ex);
                 }
-                
-                // GOOGLE_APPLICATION_CREDENTIALS environment variable'ı ayarla
-                Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", fullPath);
-                
-                FirebaseApp.Create(new AppOptions()
-                {
-                    Credential = GoogleCredential.FromFile(fullPath),
-                    ProjectId = projectId
-                });
             }
-        }        public FirestoreDb GetFirestoreDb() => _firestoreDb;
+        }
+
+        public FirestoreDb GetFirestoreDb() => _firestoreDb;
 
         public async Task<T?> GetDocumentAsync<T>(string collectionName, string documentId) where T : class
         {
