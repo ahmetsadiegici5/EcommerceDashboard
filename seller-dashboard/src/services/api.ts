@@ -112,7 +112,7 @@ export const shippingService = {
     location: string,
     description: string
   ): Promise<void> => {
-    await api.post(`/Shipping/${id}/events`, {
+    await api.put(`/Shipping/${id}/status`, {
       status,
       location,
       description,
@@ -140,23 +140,10 @@ export const shippingService = {
 // Dashboard Stats Service
 export const dashboardService = {
   getStats: async (): Promise<DashboardStats> => {
-    // Bu endpoint backend'de yoksa, verileri toparlayıp hesaplayacağız
-    const [products, orders] = await Promise.all([
-      productService.getAll(),
-      orderService.getAll(),
-    ]);
-
-    const totalProducts = products.length;
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
-    const lowStockProducts = products.filter((p) => p.stock < 10).length;
-
-    return {
-      totalProducts,
-      totalOrders,
-      totalRevenue,
-      lowStockProducts,
-    };
+    // baseURL zaten /api ile bittiği için başa / koymuyoruz
+    // Böylece istek: http://localhost:5039/api/Dashboard
+    const response = await api.get('Dashboard');
+    return response.data;
   },
 };
 
