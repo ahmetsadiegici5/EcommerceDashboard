@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
+import type { SelectChangeEvent } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Search as SearchIcon } from '@mui/icons-material';
 import { productService } from '../services/api';
 import type { Product } from '../types';
@@ -179,7 +180,7 @@ export default function ProductsPage() {
     setCurrentPage(1);
   };
 
-  const handleLowStockChange = (e: any) => {
+  const handleLowStockChange = (e: SelectChangeEvent<number | ''>) => {
     setLowStockFilter(e.target.value);
     setCurrentPage(1);
   };

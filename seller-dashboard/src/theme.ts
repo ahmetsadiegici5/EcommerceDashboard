@@ -1,4 +1,5 @@
 import { createTheme, alpha } from '@mui/material/styles';
+import type {} from '@mui/x-data-grid/themeAugmentation';
 
 // Modern renk paleti
 const colors = {

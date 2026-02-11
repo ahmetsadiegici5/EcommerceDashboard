@@ -1,237 +1,55 @@
-# E-Ticaret Satıcı Yönetim Paneli
+# E-Ticaret Satıcı Paneli
 
-Bu proje, e-ticaret satıcılarının ürün, sipariş ve kargo bilgilerini **Excel dosyaları** üzerinden yönetebilecekleri bir dashboard uygulamasıdır.
+Satıcıların ürün, sipariş ve kargo süreçlerini tek bir panelden yönetebildiği full-stack bir web uygulaması. Backend ASP.NET Core 9 Web API, frontend React + TypeScript ile geliştirilmiştir. Veriler Cloud Firestore'da tutulur, kimlik doğrulama Firebase Auth ile yapılır.
 
-## 🚀 Özellikler
+## Özellikler
 
-### Backend (ASP.NET Core Web API)
-- ✅ Firebase Firestore veritabanı entegrasyonu
-- ✅ Excel ile toplu ürün içe/dışa aktarma
-- ✅ Excel ile kargo takip bilgisi içe/dışa aktarma
-- ✅ Ürün yönetimi (CRUD)
-- ✅ Sipariş yönetimi
-- ✅ Kargo takip sistemi
-- ✅ RESTful API
-- ✅ Swagger/OpenAPI dokümantasyonu
-- ✅ Firebase Auth + HttpOnly cookie tabanlı oturum yönetimi
+- **Ürünler:** ekleme, düzenleme, silme, arama ve düşük stok filtresi
+- **Excel:** şablon indirme, toplu ürün yükleme ve dışa aktarma
+- **Siparişler:** listeleme, detay görüntüleme ve durum güncelleme (Beklemede, İşleniyor, Kargoda, Teslim Edildi, İptal)
+- **Kargo:** takip numarasıyla sorgulama ve sipariş bazlı kargo kayıtları
+- **Dashboard:** satış ve stok durumunu gösteren grafikler
 
-### Excel Özellikleri
-- 📊 Excel şablon indirme
-- 📤 Excel dosyasından toplu veri yükleme
-- 📥 Veritabanındaki verileri Excel'e aktarma
-- ✏️ Excel üzerinden ürün fiyatı, stok, kargo bilgisi güncelleme
+## Mimari
 
-## 📋 Gereksinimler
+- Backend katmanlı bir yapıdadır: Controller → Service → Firestore.
+- Girişte Firebase'den alınan token, backend tarafından HttpOnly cookie olarak saklanır. Böylece token tarayıcıda JavaScript ile erişilebilir bir yerde tutulmaz.
+- Her satıcı yalnızca kendi ürün ve siparişlerine erişebilir; bu kontrol controller seviyesinde yapılır.
+- Girdi doğrulama FluentValidation ile yapılır. Hata yönetimi özel bir middleware ile sağlanır, istek sınırlaması ise .NET'in yerleşik rate limiter'ı ile yapılır.
+- API dokümantasyonu Swagger ile sunulur.
 
-- .NET 9.0 SDK
-- Firebase hesabı ve Firestore veritabanı
-- Node.js (Frontend için)
+## Kullanılan teknolojiler
 
-## 🔧 Kurulum
+- **Backend:** C#, .NET 9, ASP.NET Core Web API, FluentValidation, EPPlus, Firebase Admin SDK
+- **Frontend:** React 19, TypeScript, Vite, Material UI, MUI DataGrid, Recharts
+- **Veritabanı / Auth:** Cloud Firestore, Firebase Authentication
+- **Test / CI:** xUnit, Moq, Vitest, GitHub Actions
 
-### 1. Firebase Yapılandırması
+## Kurulum
 
-1. [Firebase Console](https://console.firebase.google.com/) üzerinden bir proje oluşturun
-2. Firestore Database'i etkinleştirin
-3. Proje ayarları > Servis Hesapları > Yeni özel anahtar oluştur
-4. İndirilen JSON dosyasını `EcommerceAPI` klasörüne `firebase-credentials.json` adıyla kaydedin
+Gereksinimler: .NET 9 SDK, Node.js 20+ ve Authentication ile Firestore'u etkin bir Firebase projesi.
 
-### 2. Backend Kurulumu
+**Backend**
+
+Firebase Console'dan indirilen servis hesabı dosyası `EcommerceAPI/firebase-credentials.json` olarak kaydedilir (ayrıntılar: [FIREBASE_SETUP.md](EcommerceAPI/FIREBASE_SETUP.md)).
 
 ```bash
 cd EcommerceAPI
-
-# appsettings.json dosyasını düzenleyin
-# Firebase ProjectId'nizi girin
-
-# Projeyi çalıştırın
-dotnet run
+dotnet run          # http://localhost:5039, Swagger: /swagger
 ```
 
-API şu adreste çalışacaktır: `http://localhost:5039`
-
-Swagger UI: `http://localhost:5039/swagger`
-
-## 📚 API Endpoints
-
-### Kimlik Doğrulama (Auth)
-
-```
-POST   /api/auth/register        - Yeni kullanıcı oluştur
-POST   /api/auth/session         - Firebase ID token gönderip HttpOnly cookie oluştur
-DELETE /api/auth/session         - Oturumu sonlandır
-```
-
-### Ürünler (Products)
-
-```
-GET    /api/products              - Aktif kullanıcının ürünlerini listele
-GET    /api/products/{id}         - Tek ürün getir
-POST   /api/products              - Yeni ürün ekle
-PUT    /api/products/{id}         - Ürün güncelle
-DELETE /api/products/{id}         - Ürün sil
-
-# Excel İşlemleri
-GET    /api/products/template            - Excel şablonu indir
-GET    /api/products/export              - Ürünleri Excel'e aktar
-POST   /api/products/import              - Excel'den ürün yükle (kimlik doğrulanan satıcıya göre)
-```
-
-### Siparişler (Orders)
-
-```
-GET    /api/orders                - Aktif kullanıcının siparişlerini listele
-GET    /api/orders/{id}           - Tek sipariş getir
-POST   /api/orders                - Yeni sipariş oluştur
-PUT    /api/orders/{id}           - Sipariş güncelle
-PUT    /api/orders/{id}/status    - Sipariş durumu güncelle
-```
-
-### Kargo Takibi (Shipping)
-
-```
-GET    /api/shipping                     - Aktif kullanıcının kargo kayıtlarını listele
-GET    /api/shipping/{id}                - Kargo kaydı getir
-GET    /api/shipping/tracking/{number}   - Takip numarasıyla sorgula
-GET    /api/shipping/order/{orderId}     - Sipariş için kargo bilgisi
-POST   /api/shipping                     - Yeni kargo kaydı ekle
-PUT    /api/shipping/{id}                - Kargo kaydı güncelle
-POST   /api/shipping/{id}/events         - Kargo durumu ekle
-
-# Excel İşlemleri
-GET    /api/shipping/template     - Excel şablonu indir
-GET    /api/shipping/export       - Kargo bilgilerini Excel'e aktar
-POST   /api/shipping/import       - Excel'den kargo bilgisi yükle
-```
-
-## 📊 Excel Kullanımı
-
-### Ürün Excel Formatı
-
-| Ürün Adı * | Açıklama | Fiyat * | Stok * | Kategori * | SKU * | Resim URL | Aktif |
-|-----------|----------|---------|--------|-----------|-------|-----------|-------|
-| Örnek Ürün | Açıklama | 99.99 | 100 | Elektronik | SKU-123 | url | true |
-
-### Kargo Takip Excel Formatı
-
-| Sipariş ID * | Takip Numarası * | Kargo Firması * | Durum | Mevcut Konum |
-|-------------|-----------------|----------------|-------|--------------|
-| ORD-12345 | TK123456789 | Aras Kargo | Shipped | İstanbul |
-
-### Excel İşlemleri Nasıl Yapılır?
-
-1. **Şablon İndirme**: API'den ilgili `/template` endpoint'ini çağırın
-2. **Veri Girişi**: İndirilen Excel dosyasını doldurun
-3. **Yükleme**: Doldurduğunuz dosyayı `/import` endpoint'ine POST edin
-4. **Dışa Aktarma**: `/export` endpoint'inden mevcut verileri indirin
-
-## 🛠️ Teknolojiler
-
-### Backend
-- ASP.NET Core 9.0
-- Firebase Admin SDK v3.4
-- Google Cloud Firestore v3.11
-- EPPlus v7.4 (Excel işlemleri)
-- FluentValidation (Doğrulama)
-- Swagger/OpenAPI (Swashbuckle)
-- JWT Bearer Authentication
-
-### Frontend
-- React 19 + TypeScript
-- Vite 7
-- Material UI (MUI) v7
-- Firebase Client SDK v12
-- Axios, React Router, Recharts
-
-### Veritabanı
-- Firebase Firestore (NoSQL)
-
-## 📝 Veri Modelleri
-
-### Product (Ürün)
-- Name, Description, Price, Stock
-- Category, SKU, ImageUrl
-- SellerId, IsActive
-- CreatedAt, UpdatedAt
-
-### Order (Sipariş)
-- OrderNumber, SellerId, CustomerId
-- Items (List<OrderItem>)
-- TotalAmount, Status
-- ShippingAddress, TrackingNumber
-- OrderDate, ShippedDate, DeliveredDate
-
-### Shipping (Kargo)
-- OrderId, TrackingNumber, Carrier
-- Status, CurrentLocation
-- Events (List<ShippingEvent>)
-- EstimatedDeliveryDate, ActualDeliveryDate
-
-## 🔐 Kimlik Doğrulama Akışı
-
-1. Frontend Firebase client'ı ile `signInWithEmailAndPassword` veya `createUserWithEmailAndPassword` çağrılır.
-2. Firebase'den alınan ID token `POST /api/auth/session` endpoint'ine gönderilir.
-3. Backend token'ı doğrular ve HttpOnly + Secure cookie'ye yazar.
-4. Axios istekleri `withCredentials: true` olduğu için tarayıcı çerezi otomatik gönderir.
-5. Çıkışta `DELETE /api/auth/session` çağrılır ve cookie silinir.
-
-## 🔐 Güvenlik Notları
-
-- Firebase credentials dosyasını `.gitignore`'a ekleyin
-- Üretim ortamında çevre değişkenleri kullanın
-- Tüm kimlik doğrulama tarayıcıya görünmeyen HttpOnly cookie üzerinden yürütülür; `localStorage`'da token tutulmaz
-
-## 📱 Frontend (seller-dashboard)
-
-Bu projede **React 19 + TypeScript + Vite** ile geliştirilmiş bir satıcı paneli bulunmaktadır.
-
-### Frontend Kurulumu
+**Frontend**
 
 ```bash
 cd seller-dashboard
+cp .env.example .env
 npm install
-npm run dev
+npm run dev         # http://localhost:5173
 ```
 
-Frontend şu adreste çalışacaktır: `http://localhost:5173`
+**Testler**
 
-### Kullanılan Teknolojiler
-- React 19 + TypeScript
-- Vite (Build tool)
-- Material UI (MUI) v7
-- React Router v7
-- Axios (HTTP client)
-- Firebase Auth (Client SDK)
-- Recharts (Grafikler)
-- XLSX (Excel işlemleri)
-
-### Mevcut Sayfalar
-- 🏠 Dashboard (Ana sayfa/istatistikler)
-- 📦 Ürünler (Ürün listesi ve yönetimi)
-- 🛒 Siparişler (Sipariş yönetimi)
-- 🚚 Kargo (Kargo takip ekranı)
-- 📊 Excel (Excel import/export işlemleri)
-- 🔐 Giriş (Login sayfası)
-
-## 🤝 Katkıda Bulunma
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
-5. Pull Request açın
-
-## 📄 Lisans
-
-Bu proje eğitim amaçlıdır. EPPlus kütüphanesi NonCommercial lisansı ile kullanılmaktadır.
-
-## 💡 Sonraki Adımlar
-
-- [x] Frontend uygulaması (React + TypeScript + Vite)
-- [x] Kullanıcı authentication (Firebase Auth)
-- [x] Satıcı paneli görselleri (Material UI)
-- [x] Raporlama ve istatistikler (Dashboard sayfası)
-- [ ] Email bildirimleri
-- [ ] Toplu ürün güncelleme
-- [ ] Gelişmiş filtreleme ve arama
-- [ ] Birim testleri (Unit tests)
+```bash
+dotnet test
+cd seller-dashboard && npm test
+```

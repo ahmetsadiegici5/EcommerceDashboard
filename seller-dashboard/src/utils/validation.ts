@@ -107,7 +107,7 @@ export const productValidationSchema: ValidationSchema = {
   ],
   imageUrl: [
     { 
-      pattern: /^(https?:\/\/)?[\w\-]+(\.[\w\-]+)+[/#?]?.*$/, 
+      pattern: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+[/#?]?.*$/, 
       message: 'Geçerli bir URL giriniz' 
     },
   ],

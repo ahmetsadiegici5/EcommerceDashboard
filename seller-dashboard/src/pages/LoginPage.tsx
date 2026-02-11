@@ -27,19 +27,20 @@ export default function LoginPage() {
             await api.post('/Auth/session', { idToken: token });
             showToast('Giriş başarılı', 'success');
             navigate('/');
-        } catch (err: any) {
+        } catch (err) {
+            const { code, message: errMessage } = err as { code?: string; message?: string };
             console.error('Login error:', err);
             let message = 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+            if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
                 message = 'Bu e-posta ile kayıtlı bir kullanıcı bulunamadı veya şifre yanlış.';
-            } else if (err.code === 'auth/wrong-password') {
+            } else if (code === 'auth/wrong-password') {
                 message = 'Şifre yanlış. Lütfen tekrar deneyin.';
-            } else if (err.code === 'auth/invalid-email') {
+            } else if (code === 'auth/invalid-email') {
                 message = 'Geçersiz e-posta adresi.';
-            } else if (err.code === 'auth/too-many-requests') {
+            } else if (code === 'auth/too-many-requests') {
                 message = 'Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.';
-            } else if (err.message) {
-                message = err.message;
+            } else if (errMessage) {
+                message = errMessage;
             }
             setError(message);
             showToast(message, 'error');

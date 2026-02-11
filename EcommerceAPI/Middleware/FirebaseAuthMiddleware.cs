@@ -79,11 +79,10 @@ namespace EcommerceAPI.Middleware
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Firebase kimlik doğrulaması başarısız. TokenPrefix={TokenPrefix}",
-                    token!.Substring(0, Math.Min(token.Length, 20)));
+                _logger.LogWarning("Firebase kimlik doğrulaması başarısız: {Reason}", ex.GetType().Name);
 
                 context.Response.StatusCode = 401;
-                await context.Response.WriteAsJsonAsync(new { message = "Unauthorized", error = ex.Message });
+                await context.Response.WriteAsJsonAsync(new { message = "Unauthorized", error = "Oturum geçersiz veya süresi dolmuş." });
                 return;
             }
 
@@ -100,15 +99,6 @@ namespace EcommerceAPI.Middleware
                 }
             }
             return false;
-        }
-    }
-
-    // Extension method to use the middleware
-    public static class FirebaseAuthMiddlewareExtensions
-    {
-        public static IApplicationBuilder UseFirebaseAuth(this IApplicationBuilder builder)
-        {
-            return builder.UseMiddleware<FirebaseAuthMiddleware>();
         }
     }
 }

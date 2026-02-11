@@ -2,6 +2,7 @@ using EcommerceAPI.Configuration;
 using EcommerceAPI.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,15 +66,22 @@ builder.Services.AddCors(options =>
     });
 });
 
-
+// IP başına dakikada 100 istek
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 100, Window = TimeSpan.FromMinutes(1) }));
+});
 
 var app = builder.Build();
 
 // Global Exception Middleware
 app.UseMiddleware<EcommerceAPI.Middleware.ExceptionMiddleware>();
 
-// Rate Limiting Middleware
-app.UseMiddleware<EcommerceAPI.Middleware.RateLimitingMiddleware>();
+app.UseRateLimiter();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

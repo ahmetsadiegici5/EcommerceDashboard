@@ -61,7 +61,7 @@ export default function Layout({ children }: LayoutProps) {
       await logout();
       showToast('Çıkış yapıldı', 'success');
       navigate('/login');
-    } catch (error) {
+    } catch {
       showToast('Çıkış yapılırken hata oluştu', 'error');
     }
     handleMenuClose();

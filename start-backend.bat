@@ -1,4 +1,4 @@
 @echo off
-cd /d "C:\Users\ahmet\EcommerceDashboard\EcommerceAPI"
+cd /d "%~dp0EcommerceAPI"
 dotnet run
 pause
